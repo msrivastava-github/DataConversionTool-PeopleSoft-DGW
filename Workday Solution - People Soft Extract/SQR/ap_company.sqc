@@ -1,0 +1,284 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_company.sqc  -- PeopleSoft Company Extract					!
+!  Report Descriptions: This report will generate Companies information in Appirio Standard Data!
+!  Workbook (DGW)										!
+!  Report Create Date: 07-Dec-2015 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!*************************************
+Begin-Procedure Init_Variables_Company
+!*************************************
+
+!Variables are being defaulted here.
+	LET $SUB_TYPE		= 'Company'
+	LET $INCLUDE_CODE	= 'N'
+End-Procedure
+
+!**********************************
+Begin-Procedure Main_Report_Company
+!**********************************
+	Do Init_Variables_Company
+	do get_Company_Data
+
+End-Procedure
+
+!*******************************
+Begin-Procedure get_Company_Data
+!*******************************
+BEGIN-SELECT
+C.COMPANY
+C.DESCR
+C.COUNTRY
+C.ADDRESS1
+C.ADDRESS2
+C.ADDRESS3
+C.ADDRESS4
+C.CITY
+C.STATE
+C.COUNTY
+C.POSTAL
+C.PAYGROUP
+C.CURRENCY_CD
+C.FEDERAL_EIN
+C.EMPLR_TAX_NUM_NLD
+
+	LET $COMPANY_ID		= ''
+	LET $COMPANY_NAME_1	= ''
+	LET $COMPANY_CURRENCY	= ''
+	LET $COMPANY_NAME_2	= ''
+	LET $COMPANY_TAX_ID_TYPE= ''
+	LET $COMPANY_CODE	= ''
+	LET $ADDRESS_USAGE_TYPE	= ''
+	LET $ADDRESS_LINE_1	= ''
+	LET $ADDRESS_LINE_2	= ''
+	LET $ADDRESS_LINE_3	= ''
+	LET $ADDRESS_LINE_4	= ''
+	LET $CITY		= ''
+	LET $STATE		= ''
+	LET $SUB_MUNICIPALITY	= ''
+	LET $COUNTY		= ''
+	LET $POSTAL_CODE	= ''
+	LET $COUNTRY		= ''
+	LET $COMPANY_HIERARCHY	= ''
+	LET $EMPLR_TAX_NUM_NLD	= ''
+	LET $FEDERAL_EIN	= ''
+	
+	LET $EMPLR_TAX_NUM_NLD	= ''
+	LET $FEDERAL_EIN	= ''
+	LET $COMPANY_ID		= ltrim(rtrim(&C.COMPANY,' '),' ')
+	LET $COMPANY_NAME_1	= ltrim(rtrim(&C.DESCR,' '),' ')
+	LET $COMPANY_CURRENCY	= ltrim(rtrim(&C.CURRENCY_CD,' '),' ')
+	LET $ADDRESS_LINE_1	= ltrim(rtrim(&C.ADDRESS1,' '),' ')
+	LET $ADDRESS_LINE_2	= ltrim(rtrim(&C.ADDRESS2,' '),' ')
+	LET $ADDRESS_LINE_3	= ltrim(rtrim(&C.ADDRESS3,' '),' ')
+	LET $ADDRESS_LINE_4	= ltrim(rtrim(&C.ADDRESS4,' '),' ')	
+	LET $CITY		= ltrim(rtrim(&C.CITY,' '),' ')	
+	LET $STATE		= ltrim(rtrim(&C.STATE,' '),' ')	
+	LET $SUB_MUNICIPALITY	= ''
+	LET $COUNTY		= ltrim(rtrim(&C.COUNTY,' '),' ')
+	LET $COUNTRY		= ltrim(rtrim(&C.COUNTRY,' '),' ')	
+	LET $POSTAL_CODE	= ltrim(rtrim(&C.POSTAL,' '),' ')	
+	LET $COMPANY_HIERARCHY	= ''
+	
+	IF $COMPANY_CURRENCY	= ''
+		do COUNTRY_MAPS
+		LET $COMPANY_CURRENCY	= $CURRENCY
+	END-IF
+
+	IF $STATE <> ''
+		LET $STATE		= $COUNTRY||'-'||$STATE		!	State is concatenate with Country.
+		LET $ADDRESS_USAGE_TYPE	= 'BUSINESS'
+	END-IF
+
+	IF &C.EMPLR_TAX_NUM_NLD > 0
+		LET $EMPLR_TAX_NUM_NLD = EDIT(&C.EMPLR_TAX_NUM_NLD,'999999999')
+	ELSE
+		LET $EMPLR_TAX_NUM_NLD = $COMPANY_ID
+	END-IF
+	IF &C.FEDERAL_EIN > 0
+		LET $FEDERAL_EIN = EDIT(&C.FEDERAL_EIN,'999999999')
+	ELSE
+		LET $FEDERAL_EIN = $COMPANY_ID
+	END-IF
+
+	EVALUATE $COUNTRY
+		WHEN = 'USA'
+			LET $COMPANY_CODE = $FEDERAL_EIN
+		BREAK
+
+		WHEN = 'NLD'
+			LET $COMPANY_CODE = $EMPLR_TAX_NUM_NLD
+		BREAK
+
+		WHEN-OTHER
+			LET $COMPANY_CODE = $COMPANY_ID
+		BREAK
+	END-EVALUATE
+
+	do Write_Company_Data
+
+FROM PS_COMPANY_TBL C
+WHERE C.EFFDT = (SELECT MAX(C_ED.EFFDT) FROM PS_COMPANY_TBL C_ED WHERE C.COMPANY = C_ED.COMPANY 
+AND C_ED.EFFDT <= $SYSDATE )
+AND EFF_STATUS='A'
+END-SELECT
+END-PROCEDURE		!	get_Company_Data
+
+
+
+!*********************************
+BEGIN-PROCEDURE Write_Company_Data
+!*********************************
+
+	do xml_init_row(1, 1, 0, 0, 0)
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($COMPANY_ID, 0, 0)		!	Company ID
+	do xml_cell_char($COMPANY_NAME_1, 0, 0)		!	Company Name
+	do xml_cell_char($COMPANY_CURRENCY, 0, 0)	!	Company Currency
+	do xml_cell_char($COMPANY_TAX_ID_TYPE, 0, 0)	!	Company Tax ID Type
+	do xml_cell_char($COMPANY_CODE, 0, 0)		!	Company Code
+	do xml_cell_char($INCLUDE_CODE, 0, 0)		!	Included Code in Name
+	do xml_cell_char($SUB_TYPE, 0, 0)		!	Sub Type
+	do xml_cell_char($ADDRESS_USAGE_TYPE, 0, 0)	!	Address Usage Type
+	do xml_cell_char($ADDRESS_LINE_1, 0, 0)		!	Address Line #1
+	do xml_cell_char($ADDRESS_LINE_2, 0, 0)		!	Address Line #2
+	do xml_cell_char($ADDRESS_LINE_3, 0, 0)		!	Address Line #3
+	do xml_cell_char($CITY, 0, 0)			!	City or Town
+	do xml_cell_char($STATE, 0, 0)			!	State (Region)
+	do xml_cell_char($SUB_MUNICIPALITY, 0, 0)	!	Sub Municipality
+	do xml_cell_char($COUNTY, 0, 0)			!	County
+	do xml_cell_char($COUNTRY, 0, 0)		!	Country
+	do xml_cell_char($POSTAL_CODE, 0, 0)		!	Postal Code
+	do xml_cell_char($COMPANY_HIERARCHY, 0, 0)	!	Company Hierarchy
+
+END-PROCEDURE		!	Write_Company_Data
+
+!***********************************
+BEGIN-PROCEDURE Write_Header_Company
+!***********************************
+
+	do xml_init_col(1, 1, 100, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+	do xml_init_col(7, 1, 130, 0, 0)
+	do xml_init_col(8, 1, 130, 0, 0)
+	do xml_init_col(9, 1, 130, 0, 0)
+	do xml_init_col(10, 1, 130, 0, 0)
+	do xml_init_col(11, 1, 130, 0, 0)
+	do xml_init_col(12, 1, 130, 0, 0)
+	do xml_init_col(13, 1, 130, 0, 0)
+	do xml_init_col(14, 1, 130, 0, 0)
+	do xml_init_col(15, 1, 130, 0, 0)
+	do xml_init_col(16, 1, 130, 0, 0)
+	do xml_init_col(17, 1, 130, 0, 0)
+	do xml_init_col(18, 1, 130, 0, 0)
+	do xml_init_col(19, 1, 130, 0, 0)
+
+	do xml_init_row(1, 0, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('Please enter one row per Company in the UK', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 6
+	do xml_cell_char('COMPANY', 0, 1)				!($character, #column_adjust, #style_id)
+	LET #xml_mergeacross = 10
+	do xml_cell_char('COMPANY ADDRESS', 0, 1)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Company ID', 0, 2)
+	do xml_cell_char('Company Name', 0, 2)
+	do xml_cell_char('Company Currency', 0, 2)
+	do xml_cell_char('Company Tax ID Type', 0, 2)
+	do xml_cell_char('Company Code', 0, 2)
+	do xml_cell_char('Included Code in Name', 0, 2)
+	do xml_cell_char('Sub Type', 0, 2)
+	do xml_cell_char('Address Usage Type', 0, 2)
+	do xml_cell_char('Address Line #1', 0, 2)
+	do xml_cell_char('Address Line #2', 0, 2)
+	do xml_cell_char('Address Line #3', 0, 2)
+	do xml_cell_char('City or Town', 0, 2)
+	do xml_cell_char('State (Region)', 0, 2)
+	do xml_cell_char('Sub Municipality', 0, 2)
+	do xml_cell_char('County', 0, 2)
+	do xml_cell_char('Country', 0, 2)
+	do xml_cell_char('Postal Code', 0, 2)
+	do xml_cell_char('Company Hierarchy', 0, 2)
+
+
+	do xml_init_row(1, 1, 90, 0, 0)	
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Every Company must have a Unique ID.  This will be input centrally.  Territories to leave this column blank.', 0, 3)
+	do xml_cell_char('Please provide the name of the legal entity or entities in your territory with their full description as per legal registration (eg COMPANY NAME Ltd)', 0, 3)
+	do xml_cell_char('Please detail the default currency that is used to pay workers in the company provided in column C (eg GBP, HKD, EUR).', 0, 3)
+	do xml_cell_char('Please provide details of the type of tax ID provided in column E (eg, PAYE)', 0, 3)
+	do xml_cell_char('If you have an alternative unique company identifier (eg, a company registration number) please include.  This will be set to Company ID if not provided.', 0, 3)
+	do xml_cell_char('Y/N Field ', 0, 3)
+	do xml_cell_char('Company Sub Type (ex. Company)', 0, 3)
+	LET $H	= 'Please provide details of the company'||''''||'s registered business address in the format shown across columns H to Q (this should be the address that the legal entity is registered at)'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Line 1 of the primary address for the Location', 0, 3)
+	do xml_cell_char('Line 2 of the primary address for the Location.', 0, 3)
+	do xml_cell_char('Line 3 of the primary address for the Location.', 0, 3)
+	do xml_cell_char('The city from the primary address for the Location.', 0, 3)
+	do xml_cell_char('The ISO 3166-2 region code of the primary address for the location.', 0, 3)
+	do xml_cell_char('', 0, 3)
+	do xml_cell_char('Must be a valid REGION ID from the REGION VALUES section', 0, 3)
+	do xml_cell_char('Country of the primary address for the Location', 0, 3)
+	do xml_cell_char('The postal code from the primary address for the Location.', 0, 3)
+	do xml_cell_char('The Company Hierarchy. This field allows you to drill into the details of the evaluation and access related actions.', 0, 3)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N Field ', 0, 10)
+	do xml_cell_char('Dropdown', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+
+
+
+END-PROCEDURE		!	Write_Header_Company

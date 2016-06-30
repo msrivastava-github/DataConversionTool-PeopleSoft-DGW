@@ -1,0 +1,18 @@
+REM Appirio PeopleSoft Data Extraction tool
+Developer: Sumit Chaurasiya
+Date Created: 06/24/2016
+This script will import data for below listed records which will be used by AP_PSDE SQR Report Process;
+
+SET INPUT C:\TEMP\AP_SETUP_DATA.DAT;
+SET LOG C:\TEMP\AP_IMPORT.LOG;
+SET UPDATE_DUPS;
+
+IMPORT PS_AP_COUNTRY_MAPS;
+IMPORT PS_AP_COMP_EFFDT;
+IMPORT PS_AP_COMP_CONFIG;
+IMPORT PS_AP_SQR_SYSTEM;
+IMPORT PSMSGSETDEFN;
+IMPORT PSMSGCATDEFN;
+
+--We won't Import data of this record as there will be different Comp Rate Codes in client System which they can setup manually.
+--IMPORT PS_AP_COMP_PLAN;

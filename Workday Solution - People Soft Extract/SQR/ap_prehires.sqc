@@ -1,0 +1,790 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_prehire.sqc  -- PeopleSoft Pre-hires Extract				        !
+!  Report Descriptions: This report will generate Pre-hire information in Appirio Standard Data !
+!  Gathering Workbook (DGW)									!
+!  Report Create Date: 30-Sep-2015 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp ) 			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!-----------------------------------------------------------------------------------------------!
+
+!**************************************
+Begin-Procedure Init_Variables_PreHires
+!**************************************
+
+	!Variable Init & Constant Declaration
+	Let $TAB		= chr(9)
+	Let $PHONE_DEVICE_TYPE	= 'Landline'
+	Let $PASSPORT_TYPE_NAME	= ''
+	Let $PASSPORT_TYPE	= 'STANDARD'
+	Let $E_ADDR_TYPE	= 'E_ADDR_TYPE IN ('
+	Let $E_ADDR_TYPE	= $E_ADDR_TYPE|| '''' || 'HOME' || ''''||', ' ||''''|| 'BUSN' ||'''' || ')'		! Configure here what Email Address types we require. Possible types are DORM, BUSN, HOME, OTHR & CAMP.
+
+	!Address type(s) can be removed from below string if we don't want to extract particular Address Type(s)
+	Let $ADDRESS_TYPE	= 'AND ADDRESS_TYPE IN ('
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'HOME' || ''''||', ' ||''''|| 'MAIL' ||''''||', ' ||''''|| 'BUSN' ||'''' || ', '
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'CHK' || ''''||', ' ||''''|| 'DORM' ||''''||', ' ||''''|| 'LEGL' ||'''' || ', '
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'CAMP' || ''''||', ' ||''''|| 'OTH' ||''''||', ' ||''''|| 'BILL' ||'''' || ', '
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'OTH2' || ''''||', ' ||''''|| 'PERM' ||''''||', ' ||''''|| 'PREF' ||'''' ||', ' ||''''|| 'VTRN' ||'''' || ')'
+	
+	Let $WORKER_TYPE	= ''
+	Let $APPLICANT_SOURCE	= ''
+	Let $HIRE_SOURCE	= ''
+End-Procedure
+
+!***********************************
+Begin-Procedure Main_Report_PreHires
+!***********************************
+
+	do Init_Variables_PreHires
+	do Get_Prehires
+
+End-Procedure
+
+!***************************
+Begin-Procedure Get_Prehires
+!***************************
+BEGIN-SELECT
+PH1.EMPLID
+PH1.EMPL_RCD
+PH1.EFFSEQ
+PH1.EFFDT
+PH1.HIRE_DT
+PH1.PER_ORG
+	Let $EMPLID		= &PH1.EMPLID
+	LET $FIELDNAME		= 'PER_ORG'
+	LET $FIELDVALUE		= &PH1.PER_ORG
+	do Get_Xlat_Item
+	LET $WORKER_TYPE	= $XlatLongName
+	
+	do Get_Prehire_Data
+	
+FROM PS_JOB PH1
+WHERE PH1.EFFDT    =
+  (SELECT MAX(PH1_ED.EFFDT)
+  FROM PS_JOB PH1_ED
+  WHERE PH1.EMPLID  = PH1_ED.EMPLID
+  AND PH1.EMPL_RCD  = PH1_ED.EMPL_RCD
+  AND PH1_ED.EFFDT <= $SYSDATE
+  )
+AND PH1.EFFSEQ =
+  (SELECT MAX(PH1_ES.EFFSEQ)
+  FROM PS_JOB PH1_ES
+  WHERE PH1.EMPLID = PH1_ES.EMPLID
+  AND PH1.EMPL_RCD = PH1_ES.EMPL_RCD
+  AND PH1.EFFDT    = PH1_ES.EFFDT
+  )
+AND PER_ORG		IN ('EMP','CWR')
+AND JOB_INDICATOR	= 'P'				!Primary job only
+ORDER BY PH1.EMPLID, PH1.EMPL_RCD, PH1.EFFSEQ
+END-SELECT
+END-PROCEDURE			! Get_Prehires
+
+!******************************
+Begin-Procedure Get_Worker_Type
+!******************************
+Let $WORKER_TYPE	= ''
+BEGIN-SELECT
+PER_ORG
+	LET $FIELDNAME		= 'PER_ORG'
+	LET $FIELDVALUE		= &PER_ORG
+	do Get_Xlat_Item
+	LET $WORKER_TYPE	= $XlatLongName
+FROM PS_PER_ORG_ASGN PER
+WHERE EMPLID = $EMPLID
+END-SELECT
+END-PROCEDURE			! Get_Worker_Type
+
+!*******************************
+BEGIN-PROCEDURE Get_Prehire_Data
+!*******************************
+
+BEGIN-SELECT
+PERS.EMPLID
+PERS.BIRTHCOUNTRY
+	!**** Getting Column Value *****
+	Let $PREHIRE_ID			= 'A-'||$EMPLID		! A- is concatenated before Employee ID
+	Let $APPLICANT_ENTERED_DATE	= edit(&PH1.HIRE_DT,'YYYY-MM-DDT00:00:00.000')
+	
+	do Get_Names
+	do Get_Email_Addresses
+	do Get_Address_Data
+	do Get_Phone_Numbers
+
+	do Write_Prehire_Data
+
+FROM PS_PERSON PERS
+WHERE EMPLID = $EMPLID
+END-SELECT
+END-PROCEDURE			! Get_Prehire_Data
+
+!********************************
+Begin-Procedure Get_Names
+!********************************
+LET $PREFERRED_FIRST_NAME	= ''
+LET $PREFERRED_LAST_NAME	= ''
+LET $LEGAL_FIRST_NAME		= ''
+LET $LEGAL_MIDDLE_NAME		= ''
+LET $LEGAL_LAST_NAME		= ''
+LET $NAME_SUFFIX		= ''
+LET $NAME_PREFIX		= ''
+LET $COUNTRY_ISO_CODE_NAME	= ''
+LET $LEGAL_SECONDARY_NAME	= ''
+LET $PREFERRED_SECONDARY_NAME	= ''
+LET $LOCAL_SCRIPT		= ''
+LET $LOCAL_SCRIPT_FIRST_NAME	= ''
+LET $LOCAL_SCRIPT_MIDDLE_NAME	= ''
+LET $LOCAL_SCRIPT_LAST_NAME	= ''
+LET $LOCAL_SCRIPT_SECONDARY_NAME= ''
+
+BEGIN-SELECT
+NAM.EMPLID
+NAM.NAME_TYPE
+NAM.EFFDT
+NAM.FIRST_NAME
+NAM.LAST_NAME
+NAM.MIDDLE_NAME
+NAM.NAME_PREFIX
+NAM.NAME_SUFFIX
+NAM.SECOND_LAST_NAME
+
+	LET $COUNTRY_ISO_CODE_NAME	= ltrim(rtrim(&PERS.BIRTHCOUNTRY,' '),' ')
+
+	EVALUATE &NAM.NAME_TYPE
+		WHEN = 'PRI'
+		WHEN = 'LEG'
+			LET $NAME_PREFIX		= ''
+			LET $NAME_SUFFIX		= ''
+			LET $LEGAL_FIRST_NAME		= ltrim(rtrim(&NAM.FIRST_NAME,' '),' ')
+			LET $LEGAL_MIDDLE_NAME		= ltrim(rtrim(&NAM.MIDDLE_NAME,' '),' ')
+			LET $LEGAL_LAST_NAME		= ltrim(rtrim(&NAM.LAST_NAME,' '),' ')
+			LET $LEGAL_SECONDARY_NAME	= ltrim(rtrim(&NAM.SECOND_LAST_NAME,' '),' ')
+		
+			IF &NAM.NAME_PREFIX <>' '
+				LET $NAME_PREFIX	= ltrim(rtrim(&NAM.NAME_PREFIX,' '),' ')||'.'	!CONCAT . AFTER PREFIX AS WORKDAY'S VALID VALUES CONTAINS . (DOT)
+			Else
+				LET $NAME_PREFIX	= ''
+			END-IF
+			IF &NAM.NAME_SUFFIX <> ' '
+				LET $NAME_SUFFIX	= ltrim(rtrim(&NAM.NAME_SUFFIX,' '),' ')
+			Else
+				LET $NAME_SUFFIX	= ''
+			END-IF
+		BREAK
+
+		WHEN = 'PRF'
+
+			LET $PREFERRED_FIRST_NAME	= ltrim(rtrim(&NAM.FIRST_NAME,' '),' ')
+			LET $PREFERRED_LAST_NAME	= ltrim(rtrim(&NAM.LAST_NAME,' '),' ')
+			LET $PREFERRED_SECONDARY_NAME	= ltrim(rtrim(&NAM.SECOND_LAST_NAME,' '),' ')
+
+		BREAK
+
+	END-EVALUATE
+	
+		LET $LOCAL_SCRIPT			= ''
+		LET $LOCAL_SCRIPT_FIRST_NAME		= ''
+		LET $LOCAL_SCRIPT_MIDDLE_NAME		= ''
+		LET $LOCAL_SCRIPT_LAST_NAME		= ''
+		LET $LOCAL_SCRIPT_SECONDARY_NAME	= ''
+	
+
+FROM PS_NAMES NAM 
+WHERE NAM.NAME_TYPE IN ('PRI','PRF','LEG')
+AND NAM.EMPLID = $EMPLID
+AND NAM.EFFDT=(SELECT MAX(NAM1.EFFDT) FROM PS_NAMES NAM1 WHERE NAM.EMPLID=NAM1.EMPLID AND NAM.NAME_TYPE= NAM1.NAME_TYPE AND NAM1.EFFDT<=$SYSDATE)
+AND NAM.EFF_STATUS='A'
+END-SELECT
+END-PROCEDURE		!	Get_Names
+
+!**********************************
+BEGIN-PROCEDURE Get_Email_Addresses
+!**********************************
+Let $EMAIL_ADDR1	= ''
+Let $EMAIL_PRIMARY1	= ''
+Let $EMAIL_ADDR2	= ''
+Let $EMAIL_PRIMARY2	= ''
+BEGIN-SELECT
+EMAIL.EMAIL_ADDR
+E_ADDR_TYPE &TYPE_REFERENCE
+
+	Evaluate &TYPE_REFERENCE
+		When = 'HOME'
+			Let $EMAIL_ADDR1	= ltrim(rtrim(&EMAIL.EMAIL_ADDR,' '),' ')
+			Let $EMAIL_PRIMARY1	= 'Y'
+		break
+
+		When = 'BUSN'
+			Let $EMAIL_ADDR2	= ltrim(rtrim(&EMAIL.EMAIL_ADDR,' '),' ')
+			Let $EMAIL_PRIMARY2	= 'Y'
+		break
+
+		When = 'CAMP'
+		break
+
+		When = 'DORM'
+		break
+
+		When = 'OTHR'
+		break
+
+	End-Evaluate
+	
+FROM PS_EMAIL_ADDRESSES EMAIL
+WHERE [$E_ADDR_TYPE] AND EMAIL.EMPLID = $EMPLID
+END-SELECT
+END-PROCEDURE
+
+!*************************************
+Begin-Procedure Get_Phone_Numbers
+!*************************************
+Let $AREA_CODE			= ''
+Let $PHONE			= ''
+Let #length			= 0
+Let $PHONE_TYPE			= ''
+Let $INTERNATIONAL_PHN_CODE_HOME= ''
+Let $PHONE_COUNTRY_ISO_CODE	= ''
+Let $INTERNATIONAL_PHN_CODE	= ''
+Let $AREA_CODE			= ''
+Let $PHONE_NUMBER		= ''
+Let $PHONE_EXTENSION		= ''
+Let $AREA_CODE_HOME		= ''
+Let $PHONE_HOME			= ''
+Let $PHONE_EXTENSION_HOME	= ''
+Let $PHONE_USAGE_TYPE_HOME	= ''
+Let $PHONE_DEVICE_TYPE_HOME	= ''
+Let $PHONE_PRIMARY_HOME		= ''
+Let $PHONE_EMPLID_HOME		= ''
+
+Let $PHONE_DEVICE_TYPE_WORK	= ''
+Let $PHONE_USAGE_TYPE_WORK	= ''
+Let $PHONE_PRIMARY_WORK		= ''
+Let $PHONE_COUNTRY_ISO_CODE_WORK= ''
+Let $INTERNATIONAL_PHN_CODE_WORK= ''
+Let $AREA_CODE_WORK		= ''
+Let $PHONE_WORK			= ''
+Let $PHONE_EXTENSION_WORK	= ''
+Let $IS_PUBLIC_PHONE		= ''
+
+Let $INTERNATIONAL_PHN_CODE_OTH	= ''
+Let $PHONE_COUNTRY_ISO_CODE_OTH	= ''
+Let $AREA_CODE_OTH		= ''
+Let $PHONE_OTH			= ''
+Let $PHONE_EXTENSION_OTH	= ''
+Let $PHONE_USAGE_TYPE_OTH	= ''
+Let $PHONE_DEVICE_TYPE_OTH	= ''
+Let $PHONE_PRIMARY_OTH		= ''
+
+BEGIN-SELECT
+PHONE.EMPLID
+PHONE.PHONE_TYPE
+PHONE.PHONE
+PHONE.EXTENSION
+	Let $PHONE			= replace(replace(replace(replace(&PHONE.PHONE,' ',''),'/',''),'-',''),'.','')
+	Let #length			= length($PHONE)
+	Let $AREA_CODE			= SUBSTR($PHONE,1,3)
+	Let $PHONE			= SUBSTR($PHONE,4,#length)
+	Let $PHONE_CODE			= ''
+
+	!Evaluating Phone and Device type to map in Workday
+	Evaluate &PHONE.PHONE_TYPE
+		When = 'HOME'
+
+		IF $PHONE_HOME = ''
+			Let $PHONE_EMPLID_HOME		= &PHONE.EMPLID
+
+			LET $COUNTRY_CODE		= $HOME_COUNTRY_ISO_CODE
+			LET $COUNTRY_PHONE_CODE_NUMBER	= ''
+			IF $COUNTRY_CODE <> ''
+				LET $COUNTRY			= $COUNTRY_CODE
+				DO COUNTRY_MAPS						!	present in ap_xml_writer.sqc
+				LET $COUNTRY_PHONE_CODE_NUMBER	= $COUNTRY_ISD_CODE
+			END-IF
+
+			Let $INTERNATIONAL_PHN_CODE_HOME= $COUNTRY_PHONE_CODE_NUMBER
+			Let $PHONE_COUNTRY_ISO_CODE	= $COUNTRY_CODE
+			Let $AREA_CODE_HOME		= $AREA_CODE
+			Let $PHONE_HOME			= SUBSTR($PHONE,1,3)||'-'||SUBSTR($PHONE,4,#length)	! Without Area Code
+			Let $PHONE_EXTENSION_HOME	= ltrim(rtrim(&PHONE.EXTENSION,' '),' ')
+			Let $PHONE_USAGE_TYPE_HOME	= ltrim(rtrim(&PHONE.PHONE_TYPE,' '),' ')
+			Let $PHONE_DEVICE_TYPE_HOME	= $PHONE_DEVICE_TYPE
+			Let $PHONE_PRIMARY_HOME		= 'Y'
+		END-IF
+		break
+	
+		When = 'WORK'		!Here Preferences has been given to Work Phone, then Business.
+		When = 'BUSN'
+		
+		If $PHONE_WORK = ''					! Checking if Work number is already assigned
+			
+			LET $COUNTRY_CODE		= $WORK_COUNTRY_ISO_CODE
+			LET $COUNTRY_PHONE_CODE_NUMBER	= ''
+			IF $COUNTRY_CODE <> ''
+				LET $COUNTRY			= $COUNTRY_CODE
+				DO COUNTRY_MAPS						!	present in ap_xml_writer.sqc
+				LET $COUNTRY_PHONE_CODE_NUMBER	= $COUNTRY_ISD_CODE
+			END-IF
+			Let $INTERNATIONAL_PHN_CODE_WORK= $COUNTRY_PHONE_CODE_NUMBER
+			Let $PHONE_COUNTRY_ISO_CODE_WORK= $COUNTRY_CODE
+			
+			Let $AREA_CODE_WORK		= $AREA_CODE
+			Let $PHONE_WORK			= SUBSTR($PHONE,1,3)||'-'||SUBSTR($PHONE,4,#length)	! Without Area Code
+			Let $PHONE_EXTENSION_WORK	= ltrim(rtrim(&PHONE.EXTENSION,' '),' ')
+			Let $PHONE_USAGE_TYPE_WORK	= 'WORK'
+			Let $PHONE_DEVICE_TYPE_WORK	= $PHONE_DEVICE_TYPE
+			Let $PHONE_PRIMARY_WORK		= 'Y'
+
+		End-If
+
+		break
+
+		When-other
+			Let $PHONE_EMPLID_OTH		= &PHONE.EMPLID
+			Let $INTERNATIONAL_PHN_CODE_OTH	= ''
+
+			LET $COUNTRY_CODE		= $WORK_COUNTRY_ISO_CODE
+
+			LET $COUNTRY_PHONE_CODE_NUMBER	= ''
+			IF $COUNTRY_CODE <> ''
+				LET $COUNTRY			= $COUNTRY_CODE
+				DO COUNTRY_MAPS						!	present in ap_xml_writer.sqc
+				LET $COUNTRY_PHONE_CODE_NUMBER	= $COUNTRY_ISD_CODE
+			END-IF
+
+			Let $PHONE_COUNTRY_ISO_CODE_OTH	= $COUNTRY_CODE
+			Let $INTERNATIONAL_PHN_CODE_OTH	= $COUNTRY_PHONE_CODE_NUMBER
+			Let $AREA_CODE_OTH		= $AREA_CODE
+			Let $PHONE_OTH			= SUBSTR($PHONE,1,3)||'-'||SUBSTR($PHONE,4,#length)	! Without Area Code
+			Let $PHONE_EXTENSION_OTH	= ltrim(rtrim(&PHONE.EXTENSION,' '),' ')				!Mobile Phone Extension is set to Blank value
+
+			Evaluate &PHONE.PHONE_TYPE
+				When = 'CELL'			! Mobile
+				Let $PHONE_USAGE_TYPE_OTH	= 'WORK'
+				Let $PHONE_DEVICE_TYPE_OTH	= 'Mobile'
+				break
+				
+				When = 'MAIN'
+				Let $PHONE_USAGE_TYPE_OTH	= 'HOME'
+				Let $PHONE_DEVICE_TYPE_OTH	= $PHONE_DEVICE_TYPE
+				break
+
+			End-Evaluate
+			Let $PHONE_PRIMARY_OTH		= 'N'
+		break
+
+	End-Evaluate
+
+FROM PS_PERSONAL_PHONE PHONE
+WHERE PHONE.PHONE_TYPE NOT IN ('CAMP', 'DORM', 'FAX', 'OTR', 'PGR1', 'PGR2', 'TELX' )
+AND PHONE.PHONE <> ' '
+AND PHONE.EMPLID = $EMPLID
+order by PHONE.EMPLID, PHONE.PHONE_TYPE desc
+END-SELECT
+
+End-Procedure	!	Get_Phone_Numbers
+
+
+!*******************************
+Begin-Procedure Get_Address_Data
+!*******************************
+Let $COUNTRY_ISO_CODE		= ''
+Let $ADDRESS_LINE_1		= ''
+Let $ADDRESS_LINE_2		= ''
+Let $ADDRESS_LINE_3		= ''
+Let $ADDRESS_LINE_4		= ''
+Let $CITY			= ''
+Let $SUBMUNICIPALITY		= ''
+Let $STATE			= ''
+Let $SUBREGION			= ''
+Let $POSTAL_CODE		= ''
+Let $PRIMARY			= ''
+Let $COUNTRY_ISO_CODE_2		= ''
+LET $HOME_COUNTRY_ISO_CODE	= ''		
+LET $HOME_ADDRESS_LINE_1	= ''		
+LET $HOME_ADDRESS_LINE_2	= ''		
+LET $HOME_ADDRESS_LINE_3	= ''		
+LET $HOME_ADDRESS_LINE_4	= ''		
+LET $HOME_CITY			= ''
+LET $HOME_SUBMUNICIPALITY	= ''		
+LET $HOME_STATE			= ''
+LET $HOME_SUBREGION		= ''	
+LET $HOME_POSTAL_CODE		= ''	
+LET $HOME_PRIMARY		= ''	
+
+LET $WORK_COUNTRY_ISO_CODE	= ''
+LET $WORK_ADDRESS_LINE_1	= ''
+LET $WORK_ADDRESS_LINE_2	= ''
+LET $WORK_ADDRESS_LINE_3	= ''
+LET $WORK_ADDRESS_LINE_4	= ''
+LET $WORK_CITY			= ''
+LET $WORK_SUBMUNICIPALITY	= ''
+LET $WORK_STATE			= ''
+LET $WORK_SUBREGION		= ''
+LET $WORK_POSTAL_CODE		= ''
+LET $WORK_PRIMARY		= ''
+LET $WORK_COUNTRY_ISO_CODE_2	= ''
+
+Begin-Select
+ADDR.ADDRESS_TYPE	
+ADDR.COUNTRY	
+ADDR.ADDRESS1
+ADDR.ADDRESS2
+ADDR.ADDRESS3
+ADDR.ADDRESS4
+ADDR.CITY	
+ADDR.STATE	
+ADDR.POSTAL
+	Let $COUNTRY_ISO_CODE		= ltrim(rtrim(&ADDR.COUNTRY,' '),' ')
+	Let $ADDRESS_LINE_1		= ltrim(rtrim(&ADDR.ADDRESS1,' '),' ')
+	Let $ADDRESS_LINE_2		= ltrim(rtrim(&ADDR.ADDRESS2,' '),' ')
+	Let $ADDRESS_LINE_3		= ltrim(rtrim(&ADDR.ADDRESS3,' '),' ')
+	Let $ADDRESS_LINE_4		= ltrim(rtrim(&ADDR.ADDRESS4,' '),' ')
+	Let $CITY			= ltrim(rtrim(&ADDR.CITY,' '),' ')
+	Let $SUBMUNICIPALITY		= ''
+	Let $STATE_CODE			= ltrim(rtrim(&ADDR.STATE,' '),' ')
+	Let $SUBREGION			= ''
+	Let $POSTAL_CODE		= ltrim(rtrim(&ADDR.POSTAL,' '),' ')
+	Let $PRIMARY			= 'Y'
+	Let $COUNTRY_ISO_CODE_2		= ''
+
+	!LET $STATE_KEYS		= $COUNTRY_ISO_CODE||','||$STATE_CODE
+	!lookup STATES $STATE_KEYS $STATE
+	LET $STATE			= $COUNTRY_ISO_CODE||'-'||$STATE_CODE		! This will print State (region) e.g. USA-CA
+
+	Evaluate &ADDR.ADDRESS_TYPE
+		When = 'HOME'
+		When = 'MAIL'
+		When = 'CHK'
+		When = 'DORM'
+		When = 'LEGL'
+		When = 'CAMP'
+		When = 'OTH'
+		When = 'BILL'
+		When = 'OTH2'
+		When = 'PERM'
+		When = 'PREF'
+		When = 'VTRN'
+
+		If $HOME_ADDRESS_LINE_1 = ''
+
+		LET $HOME_COUNTRY_ISO_CODE	= $COUNTRY_ISO_CODE
+		LET $HOME_ADDRESS_LINE_1	= $ADDRESS_LINE_1
+		LET $HOME_ADDRESS_LINE_2	= $ADDRESS_LINE_2
+		LET $HOME_ADDRESS_LINE_3	= $ADDRESS_LINE_3
+		LET $HOME_ADDRESS_LINE_4	= $ADDRESS_LINE_4
+		LET $HOME_CITY			= $CITY
+		LET $HOME_SUBMUNICIPALITY	= $SUBMUNICIPALITY
+		LET $HOME_STATE			= $STATE
+		LET $HOME_SUBREGION		= $SUBREGION
+		LET $HOME_POSTAL_CODE		= $POSTAL_CODE
+		LET $HOME_PRIMARY		= $PRIMARY
+		
+		End-if
+		
+		break
+
+		When = 'BUSN'
+
+		LET $WORK_COUNTRY_ISO_CODE	= $COUNTRY_ISO_CODE
+		LET $WORK_ADDRESS_LINE_1	= $ADDRESS_LINE_1
+		LET $WORK_ADDRESS_LINE_2	= $ADDRESS_LINE_2
+		LET $WORK_ADDRESS_LINE_3	= $ADDRESS_LINE_3
+		LET $WORK_ADDRESS_LINE_4	= $ADDRESS_LINE_4
+		LET $WORK_CITY			= $CITY
+		LET $WORK_SUBMUNICIPALITY	= $SUBMUNICIPALITY
+		LET $WORK_STATE			= $STATE
+		LET $WORK_SUBREGION		= $SUBREGION
+		LET $WORK_POSTAL_CODE		= $POSTAL_CODE
+		LET $WORK_PRIMARY		= $PRIMARY
+		LET $WORK_COUNTRY_ISO_CODE_2	= $COUNTRY_ISO_CODE_2
+
+		break
+
+	End-Evaluate
+
+FROM PS_ADDRESSES ADDR 
+WHERE ADDR.EFFDT = (SELECT MAX(ADDR1.EFFDT) FROM PS_ADDRESSES ADDR1 WHERE ADDR.EMPLID=ADDR1.EMPLID AND ADDR.ADDRESS_TYPE=ADDR1.ADDRESS_TYPE
+AND ADDR1.EFFDT<=$SYSDATE) AND EFF_STATUS = 'A'
+[$ADDRESS_TYPE]
+AND ADDR.EMPLID = $EMPLID
+End-Select
+
+End-Procedure	!	Get_Address_Data
+
+!***********************************
+BEGIN-PROCEDURE Write_Prehire_Data
+!***********************************
+	do xml_init_row(1, 0, 15, 0, 0)
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($EMPLID, 0, 0)				!	Employee ID
+	do xml_cell_char($PREHIRE_ID, 0, 0)			!	Applicant ID
+	do xml_cell_char($WORKER_TYPE, 0, 0)			!	Worker Type
+	do xml_cell_datetime($APPLICANT_ENTERED_DATE, 0, 4)	!	Applicant Entered Date
+	do xml_cell_char($APPLICANT_SOURCE, 0, 0)		!	Applicant Source Name
+	do xml_cell_char($HIRE_SOURCE, 0, 0)			!	Hire Source Category Name
+	
+	!NAME DATA
+	do xml_cell_char($COUNTRY_ISO_CODE_NAME, 0, 0)		!	Country ISO Code
+	do xml_cell_char($LEGAL_FIRST_NAME, 0, 0)		!	Legal First Name
+	do xml_cell_char($LEGAL_MIDDLE_NAME, 0, 0)		!	Legal Middle Name
+	do xml_cell_char($LEGAL_LAST_NAME, 0, 0)		!	Legal Last Name
+	do xml_cell_char($LEGAL_SECONDARY_NAME, 0, 0)		!	Legal Secondary Name
+	do xml_cell_char($NAME_PREFIX, 0, 0)			!	Prefix Type
+	do xml_cell_char($NAME_SUFFIX, 0, 0)			!	Suffix
+	
+	!WORK EMAIL DATA
+	do xml_cell_char($EMAIL_ADDR2, 0, 0)			!	Email Address
+	do xml_cell_char($EMAIL_PRIMARY2, 0, 0)			!	Primary
+
+	!WORK PHONE NUMBER
+	do xml_cell_char($PHONE_COUNTRY_ISO_CODE_WORK, 0, 0)	!	Country ISO Code
+	do xml_cell_char($INTERNATIONAL_PHN_CODE_WORK, 0, 0)	!	International Phone Code
+	do xml_cell_char($AREA_CODE_WORK, 0, 0)			!	Area Code
+	do xml_cell_char($PHONE_WORK, 0, 0)			!	Phone Number
+	do xml_cell_char($PHONE_EXTENSION_WORK, 0, 0)		!	Phone Extension
+	do xml_cell_char($PHONE_DEVICE_TYPE_WORK, 0, 0)		!	Phone Device Type Description
+	do xml_cell_char($PHONE_USAGE_TYPE_WORK, 0, 0)		!	Usage Type
+	do xml_cell_char($PHONE_PRIMARY_WORK, 0, 0)		!	Primary
+
+	!WORK ADDRESS DATA
+	do xml_cell_char($WORK_COUNTRY_ISO_CODE, 0, 0)		!	Country ISO Code		
+	do xml_cell_char($WORK_ADDRESS_LINE_1, 0, 0)		!	Address Line #1		
+	do xml_cell_char($WORK_ADDRESS_LINE_2, 0, 0)		!	Address Line #2 (if applicable)
+	do xml_cell_char($WORK_ADDRESS_LINE_3, 0, 0)		!	Address Line #3 (if applicable)
+	do xml_cell_char($WORK_ADDRESS_LINE_4, 0, 0)		!	Address Line #4 (if applicable)
+	do xml_cell_char($WORK_CITY, 0, 0)			!	Municipality	
+	do xml_cell_char($WORK_SUBMUNICIPALITY, 0, 0)		!	Submunicipality		
+	do xml_cell_char($WORK_STATE, 0, 0)			!	Region	
+	do xml_cell_char($WORK_SUBREGION, 0, 0)			!	Subregion	
+	do xml_cell_char($WORK_POSTAL_CODE, 0, 0)		!	Postal Code		
+	do xml_cell_char($WORK_PRIMARY, 0, 0)			!	Primary
+	do xml_cell_char('', 0, 0)				!	Remote Worker Flag
+
+END-PROCEDURE			! Write_Prehire_Data
+
+!************************************
+BEGIN-PROCEDURE Write_Header_PreHires
+!************************************
+
+	!INITIALIZATION OF COLUMNS
+
+	do xml_init_col(1, 1, 100, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 150, 0, 0)
+	do xml_init_col(4, 1, 150, 0, 0)
+	do xml_init_col(5, 1, 150, 0, 0)
+	do xml_init_col(6, 1, 150, 0, 0)
+	do xml_init_col(7, 1, 150, 0, 0)
+	do xml_init_col(8, 1, 150, 0, 0)
+	do xml_init_col(9, 1, 150, 0, 0)
+	do xml_init_col(10, 1, 150, 0, 0)
+	do xml_init_col(11, 1, 150, 0, 0)
+	do xml_init_col(12, 1, 150, 0, 0)
+	do xml_init_col(13, 1, 150, 0, 0)
+	do xml_init_col(14, 1, 150, 0, 0)
+	do xml_init_col(15, 1, 150, 0, 0)
+	do xml_init_col(16, 1, 150, 0, 0)
+	do xml_init_col(17, 1, 150, 0, 0)
+	do xml_init_col(18, 1, 150, 0, 0)
+	do xml_init_col(19, 1, 150, 0, 0)
+	do xml_init_col(20, 1, 150, 0, 0)
+	do xml_init_col(21, 1, 150, 0, 0)
+	do xml_init_col(22, 1, 180, 0, 0)
+	do xml_init_col(23, 1, 150, 0, 0)
+	do xml_init_col(24, 1, 150, 0, 0)
+	do xml_init_col(25, 1, 150, 0, 0)
+	do xml_init_col(26, 1, 150, 0, 0)
+	do xml_init_col(27, 1, 150, 0, 0)
+	do xml_init_col(28, 1, 150, 0, 0)
+	do xml_init_col(29, 1, 150, 0, 0)
+	do xml_init_col(30, 1, 150, 0, 0)
+	do xml_init_col(31, 1, 150, 0, 0)
+	do xml_init_col(32, 1, 150, 0, 0)
+	do xml_init_col(33, 1, 150, 0, 0)
+	do xml_init_col(34, 1, 150, 0, 0)
+	do xml_init_col(35, 1, 150, 0, 0)
+	do xml_init_col(36, 1, 150, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+	LET #xml_mergeacross = 34
+	do xml_cell_char('', 0, 0)
+
+	do xml_init_row(1, 1, 30, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 3
+	do xml_cell_char('', 0, 1)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('APPLICANT SOURCE REFERENCE', 0, 1)
+	LET #xml_mergeacross = 6
+	do xml_cell_char('NAME DATA', 0, 1)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('WORK EMAIL DATA', 0, 1)
+	LET #xml_mergeacross = 7
+	do xml_cell_char('WORK PHONE NUMBER', 0, 1)
+	LET #xml_mergeacross = 11
+	do xml_cell_char('WORK ADDRESS DATA', 0, 1)
+
+
+	do xml_init_row(1, 1, 25, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Employee ID', 0, 2)
+	do xml_cell_char('Applicant ID', 0, 2)
+	do xml_cell_char('Worker Type', 0, 2)
+	do xml_cell_char('Applicant Entered Date', 0, 2)
+	do xml_cell_char('Applicant Source Name', 0, 2)
+	do xml_cell_char('Hire Source Category Name', 0, 2)
+	do xml_cell_char('Country ISO Code', 0, 2)
+	do xml_cell_char('Legal First Name', 0, 2)
+	do xml_cell_char('Legal Middle Name', 0, 2)
+	do xml_cell_char('Legal Last Name', 0, 2)
+	do xml_cell_char('Legal Secondary Name', 0, 2)
+	do xml_cell_char('Prefix Type', 0, 2)
+	do xml_cell_char('Suffix', 0, 2)
+	do xml_cell_char('Email Address', 0, 2)
+	do xml_cell_char('Primary', 0, 2)
+	do xml_cell_char('Country ISO Code', 0, 2)
+	do xml_cell_char('International Phone Code', 0, 2)
+	do xml_cell_char('Area Code', 0, 2)
+	do xml_cell_char('Phone Number', 0, 2)
+	do xml_cell_char('Phone Extension', 0, 2)
+	do xml_cell_char('Phone Device Type Description', 0, 2)
+	do xml_cell_char('Usage Type', 0, 2)
+	do xml_cell_char('Primary', 0, 2)
+	do xml_cell_char('Country ISO Code', 0, 2)
+	do xml_cell_char('Address Line #1', 0, 2)
+	do xml_cell_char('Address Line #2 (if applicable)', 0, 2)
+	do xml_cell_char('Address Line #3 (if applicable)', 0, 2)
+	do xml_cell_char('Address Line #4 (if applicable)', 0, 2)
+	do xml_cell_char('Municipality', 0, 2)
+	do xml_cell_char('Submunicipality', 0, 2)
+	do xml_cell_char('Region', 0, 2)
+	do xml_cell_char('Subregion', 0, 2)
+	do xml_cell_char('Postal Code', 0, 2)
+	do xml_cell_char('Primary', 0, 2)
+	do xml_cell_char('Remote Worker Flag', 0, 2)
+	
+	do xml_init_row(1, 1, 150, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('The employee identifier should be unique to the individual and will be what a country uses to track that employee. It may or may not be the same number as is used for payroll. If there are two numbers in operation, please use the non payroll number here, otherwise please use the payroll number. Please list the current employee ID used to uniquely identify the employee.', 0, 3)
+	do xml_cell_char('A_EmployeeID - Applicant unique identifier', 0, 3)
+	LET $H	= 'The worker type for the worker'||''''||'s  primary position. (e.g. Regular, Intern, Temp).'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Date applicant entered into system', 0, 3)
+	do xml_cell_char('This is based on how your company tracks where their new applicants come from.  Some examples are LinkedIn, Job Boards, College Recruiting, etc. ', 0, 3)
+	do xml_cell_char('This is based on how your company tracks where their new hires come from.  Some examples are LinkedIn, Job Boards, College Recruiting, etc. ', 0, 3)
+	do xml_cell_char('Please refer to Global ISO Codes to complete this section for the relevant country code.  Ensure that you are using the 3 digit ISO Code (ex. United States = USA.  Canada = CAN)', 0, 3)
+	LET $H	= 'The pre-hire'||''''||'s  legal first or given name.'
+	do xml_cell_char($H, 0, 3)
+	LET $H	= 'The pre-hire'||''''||'s  legal middle name.'
+	do xml_cell_char($H, 0, 3)
+	LET $H	= 'The pre-hire'||''''||'s  legal family name.'
+	do xml_cell_char($H, 0, 3)
+	LET $H	= 'The pre-hire'||''''||'s  legal secondary name.'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Name prefix (Ms., Mr., etc.)', 0, 3)
+	do xml_cell_char('Name suffix (Jr., II, etc.)', 0, 3)
+	do xml_cell_char('Email address used for work purposes', 0, 3)
+	do xml_cell_char('Y/N on whether this email address is the primary one', 0, 3)
+	do xml_cell_char('Please refer to Global ISO Codes to complete this section for the relevant country code.  Ensure that you are using the 3 digit ISO Code (ex. United States = USA.  Canada = CAN)', 0, 3)
+	do xml_cell_char('International Phone Code', 0, 3)
+	do xml_cell_char('Area code associated with work phone number', 0, 3)
+	do xml_cell_char('Phone number associated with work phone number', 0, 3)
+	do xml_cell_char('Extenstion associated with emergency phone number', 0, 3)
+	do xml_cell_char('Describe whether phone is home, work, etc.', 0, 3)
+	do xml_cell_char('How you would describe your phone ( Home, Work, Mobile are the most common)', 0, 3)
+	do xml_cell_char('Y/N on whether this email address is the primary one', 0, 3)
+	do xml_cell_char('Please refer to Global ISO Codes to complete this section for the relevant country code.  Ensure that you are using the 3 digit ISO Code (ex. United States = USA.  Canada = CAN)', 0, 3)
+	do xml_cell_char('Work address line #1', 0, 3)
+	do xml_cell_char('Work address line #2', 0, 3)
+	do xml_cell_char('Work address line #3', 0, 3)
+	do xml_cell_char('Work address line #4', 0, 3)
+	do xml_cell_char('City associated with work address', 0, 3)
+	LET $H	= 'Subset of municipality'||''''||'s .  Use if your company keeps track of this'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Region associated with work address', 0, 3)
+	LET $H	= 'Subset of the Region'||''''||'s .   Use if your company has this data'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Postal Code associated with work address', 0, 3)
+	do xml_cell_char('Y/N on whether this address is the primary one', 0, 3)
+	do xml_cell_char('If the employee is Virtual or not (Y/N)', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('MM/DD/YYYY', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Optional/Required', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+
+
+END-PROCEDURE

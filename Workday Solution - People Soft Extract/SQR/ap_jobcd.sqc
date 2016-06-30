@@ -1,0 +1,307 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_jobcd.sqc  -- PeopleSoft Job Profiles Extract				!
+!  Report Descriptions: This report will generate Job profiles in Appirio Standard Data Workbook!
+!  Report Create Date: 30-Nov-2015 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!******************************************
+Begin-Procedure Init_Variables_Job_Profiles
+!******************************************
+ Let $where_clause	= 'B.EFFDT = (SELECT MAX(B_ED.EFFDT) FROM PS_JOB_FAMILY_TBL B_ED WHERE B.JOB_FAMILY = B_ED.JOB_FAMILY AND B_ED.EFFDT <= '||''''||$SYSDATE||''''||') AND B.EFF_STATUS =' ||''''||'A'||''''
+ load-lookup
+ name=JOB_FAMILY_TBL
+ table='PS_JOB_FAMILY_TBL B'
+ key=JOB_FAMILY
+ return_value=DESCR
+ where=$where_clause
+
+ QUIET
+
+ load-lookup
+ name=EEO_JOB_GRP_TBL
+ table=PS_EEO_JOB_GRP_TBL
+ key=EEO_JOB_GROUP
+ return_value=DESCR
+
+ QUIET
+
+ Let $where_clause	= 'JOB_FUNC.EFFDT = (SELECT MAX(JOB_FUNC_ED.EFFDT) FROM PS_JOBFUNCTION_TBL JOB_FUNC_ED WHERE JOB_FUNC.JOB_FUNCTION = JOB_FUNC_ED.JOB_FUNCTION AND JOB_FUNC_ED.EFFDT <= '||''''||$SYSDATE||''''||') AND JOB_FUNC.EFF_STATUS =' ||''''||'A'||''''
+ load-lookup
+ name=JOBFUNCTION_TBL
+ table='PS_JOBFUNCTION_TBL JOB_FUNC'
+ key=JOB_FUNCTION
+ return_value=DESCR
+ where=$where_clause
+
+ QUIET
+
+ !Variables are being defaulted here.
+ LET $INCLUDE_JOB_CODE		= 'N'
+ LET $JOB_PUBLIC		= 'Y'
+ 
+End-Procedure
+
+
+!***************************************
+Begin-Procedure Main_Report_Job_Profiles
+!***************************************
+
+	do Init_Variables_Job_Profiles
+	do get_job_profile_data
+
+End-Procedure
+
+
+!***********************************
+Begin-Procedure get_job_profile_data
+!***********************************
+
+LET $JOBCODE		= ''
+LET $EFF_STATUS		= ''
+LET $JOB_PROFILE	= ''
+LET $JOB_FAMILY		= ''
+LET $COMPANY		= ''
+LET $JOB_SUB_FUNC	= ''
+LET $DESCRLONG		= ''
+LET $STD_HOURS		= ''
+LET $MANAGER_LEVEL	= ''
+LET $GRADE		= ''
+LET $STEP		= ''
+LET $SAL_ADMIN_PLAN	= ''
+LET $MANAGER_LEVEL	= ''
+LET $EEO1_CLASS		= ''
+LET $JOB_CLASS		= ''
+LET $EXEMPT		= ''
+LET $COUNTRY		= ''
+LET $COUNTRY_NAME	= ''
+LET $JOB_FUNCTION	= ''
+
+BEGIN-SELECT
+A.JOBCODE
+A.SETID
+A.EFF_STATUS
+A.DESCR
+A.JOB_FAMILY
+A.JOB_FUNCTION
+A.COMPANY
+A.JOB_SUB_FUNC
+A.DESCRLONG
+A.STD_HOURS
+A.MANAGER_LEVEL
+A.GRADE
+A.STEP
+A.SAL_ADMIN_PLAN
+A.EEO1CODE
+A.EEO_JOB_GROUP
+A.FLSA_STATUS
+A.WORKERS_COMP_CD
+	LET $JOB_PROFILE	= LTRIM(RTRIM(&A.DESCR,' '),' ')
+	LET $JOBCODE		= LTRIM(RTRIM(&A.JOBCODE,' '),' ')
+	LET $GRADE		= LTRIM(RTRIM(&A.GRADE,' '),' ')
+	LET $JOB_FAMILY		= LTRIM(RTRIM(&A.JOB_FAMILY,' '),' ')
+	LET $JOB_FUNCTION	= LTRIM(RTRIM(&A.JOB_FUNCTION,' '),' ')
+	LET $JOB_DESCR		= LTRIM(RTRIM(&A.DESCRLONG,' '),' ')
+	LET $COMP_CODE		= LTRIM(RTRIM(&A.WORKERS_COMP_CD,' '),' ')
+	
+	!do COUNTRY_MAPS
+	lookup JOB_FAMILY_TBL $JOB_FAMILY $JOB_FAMILY_DESCR
+
+	LET $JOB_FUNCTION_DESCR	= ''
+	lookup JOBFUNCTION_TBL $JOB_FUNCTION $JOB_FUNCTION_DESCR
+
+	Let $FIELDNAME		= 'MANAGER_LEVEL'
+	Let $FIELDVALUE		= LTRIM(RTRIM(&A.MANAGER_LEVEL,' '),' ')
+	do Get_Xlat_Item
+	Let $MANAGER_LEVEL	= $XlatLongName
+
+	Let $FIELDNAME		= 'EEO1CODE'
+	Let $FIELDVALUE		= LTRIM(RTRIM(&A.EEO1CODE,' '),' ')
+	do Get_Xlat_Item
+	Let $EEO1_CLASS		= $XlatLongName
+
+	Let $JOB_GROUP		= LTRIM(RTRIM(&A.EEO_JOB_GROUP,' '),' ')
+	lookup EEO_JOB_GRP_TBL $JOB_GROUP $JOB_CLASS
+
+	Let $FIELDNAME		= 'FLSA_STATUS'
+	Let $FIELDVALUE		= LTRIM(RTRIM(&A.FLSA_STATUS,' '),' ')
+	do Get_Xlat_Item
+	Let $EXEMPT		= $XlatLongName
+
+	do Write_Job_Profiles_Data
+
+FROM PS_JOBCODE_TBL A
+WHERE A.EFFDT = (SELECT MAX(A_ED.EFFDT) FROM PS_JOBCODE_TBL A_ED
+WHERE A.SETID = A_ED.SETID AND A.JOBCODE = A_ED.JOBCODE AND A_ED.EFFDT <= $SYSDATE )
+AND EFF_STATUS='A'
+ORDER BY 1
+END-SELECT
+
+END-PROCEDURE
+
+!**************************************
+BEGIN-PROCEDURE Write_Job_Profiles_Data
+!***************************************
+
+	do xml_init_row(1, 1, 0, 0, 0)
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($JOB_PROFILE, 0, 0)		!	Job Profile	
+	do xml_cell_char($JOBCODE, 0, 0)		!	Job Code	
+	do xml_cell_char($INCLUDE_JOB_CODE,0,0)		!	Include Job Code in Name?	
+	do xml_cell_char($GRADE, 0, 0)			!	Grade
+	do xml_cell_char('', 0, 0)			!	Grade Profile
+	do xml_cell_char($COUNTRY_NAME, 0, 0)		!	Country	
+	do xml_cell_char($COUNTRY, 0, 0)		!	Country Code	
+	do xml_cell_char($EXEMPT, 0, 0)			!	Exempt / Non Exempt
+	do xml_cell_char('', 0, 0)			!	Pay Rate Type
+	do xml_cell_char($MANAGER_LEVEL,0,0)		!	Management Level	
+	do xml_cell_char($EEO1_CLASS, 0, 0)		!	EEO-1 Classification	
+	do xml_cell_char($JOB_CLASS, 0, 0)		!	Job Classification ID	
+	do xml_cell_char($COMP_CODE, 0, 0)		!	US Worker's Compensation Code	
+	do xml_cell_char($JOB_FAMILY_DESCR,0,0)		!	Job Family	
+	do xml_cell_char($JOB_FAMILY, 0, 0)		!	Job Family Code	
+	do xml_cell_char($JOB_FUNCTION_DESCR,0,0) 	!	Job Family Group
+	do xml_cell_char('', 0, 0)			!	Job Profile Summary
+	do xml_cell_char($JOB_DESCR, 0, 0)		!	Job Descr	
+	do xml_cell_char($JOB_PUBLIC, 0, 0)		!	Public	
+	do xml_cell_char('', 0, 0)			!	Category
+
+END-PROCEDURE		!	Write_Job_Profiles_Data
+
+!****************************************
+BEGIN-PROCEDURE Write_Header_Job_Profiles
+!****************************************
+
+	do xml_init_col(1, 1, 100, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 130, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+	do xml_init_col(7, 1, 130, 0, 0)
+	do xml_init_col(8, 1, 130, 0, 0)
+	do xml_init_col(9, 1, 130, 0, 0)
+	do xml_init_col(10, 1, 130, 0, 0)
+	do xml_init_col(11, 1, 130, 0, 0)
+	do xml_init_col(12, 1, 130, 0, 0)
+	do xml_init_col(13, 1, 150, 0, 0)
+	do xml_init_col(14, 1, 130, 0, 0)
+	do xml_init_col(15, 1, 130, 0, 0)
+	do xml_init_col(16, 1, 130, 0, 0)
+	do xml_init_col(17, 1, 130, 0, 0)
+	do xml_init_col(18, 1, 150, 0, 0)
+	do xml_init_col(19, 1, 130, 0, 0)
+	do xml_init_col(20, 1, 130, 0, 0)
+	do xml_init_col(21, 1, 130, 0, 0)
+
+	do xml_init_row(1, 0, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 19
+	do xml_cell_char('', 0, 1)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Job Profile', 0, 2)
+	do xml_cell_char('Job Code', 0, 2)
+	do xml_cell_char('Include Job Code in Name?', 0, 2)
+	do xml_cell_char('Grade', 0, 2)
+	do xml_cell_char('Grade Profile', 0, 2)
+	do xml_cell_char('Country', 0, 2)
+	do xml_cell_char('Country Code', 0, 2)
+	do xml_cell_char('Exempt / Non Exempt', 0, 2)
+	do xml_cell_char('Pay Rate Type', 0, 2)
+	do xml_cell_char('Management Level', 0, 2)
+	do xml_cell_char('EEO-1 Classification', 0, 2)
+	do xml_cell_char('Job Classification ID', 0, 2)
+	LET $H	= 'US Worker'||''''||'s Compensation Code'
+	do xml_cell_char($H, 0, 2)
+	do xml_cell_char('Job Family', 0, 2)
+	do xml_cell_char('Job Family Code', 0, 2)
+	do xml_cell_char('Job Family Group', 0, 2)
+	do xml_cell_char('Job Profile Summary', 0, 2)
+	do xml_cell_char('Job Descr', 0, 2)
+	do xml_cell_char('Public', 0, 2)
+	do xml_cell_char('Category', 0, 2)
+
+
+	do xml_init_row(1, 1, 60, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Returns the Job Profile profile for the worker', 0, 3)
+	do xml_cell_char('Valid value must also exist in the JOB CATALOG section.  Territories do NOT need to complete this section; it will be managed centrally.', 0, 3)
+	do xml_cell_char('Do you want to include the Job Code within the name of the Job Profile?', 0, 3)
+	do xml_cell_char('', 0, 3)
+	do xml_cell_char('Grade profile to assign to position. This will be managed centrally. No territory input required.', 0, 3)
+	do xml_cell_char('Country that the Compensation Grade is based off of.   (Ex. If United States, then the Min, Mid, Max will be represented in United States Dollars)', 0, 3)
+	do xml_cell_char('ISO Code based on the Country selected for this compensation grade.', 0, 3)
+	LET $RT = 'Returns a text label of '||''''||'Exempt'||''''||' or '||''''||'Non-Exempt'||''''||' text for this Job Profile Exempt.'
+	do xml_cell_char($RT, 0, 3)
+	!do xml_cell_char('Returns a text label of 'Exempt' or 'Non-Exempt' text for this Job Profile Exempt.', 0, 3)
+	do xml_cell_char('Please enter "Hourly"  for employees that are paid by the hour and "Salaried" for the employees that receive a monthly salary', 0, 3)
+	LET $MLEVEL = 'Management Level for the worker. It is retrieved from the job profile associated with the worker'||''''||'s primary position.'
+	do xml_cell_char($MLEVEL, 0, 3)
+	!do xml_cell_char('Management Level for the worker. It is retrieved from the job profile associated with the worker's primary position.', 0, 3)
+	do xml_cell_char('The job classification is used primarily for regulatory reporting (e.g. EEO, etc). This field allows you to drill into the details of the job classification and access related actions.', 0, 3)
+	do xml_cell_char('The job classification is used primarily for regulatory reporting (e.g. EEO, etc). This field allows you to drill into the details of the job classification and access related actions.', 0, 3)
+	do xml_cell_char('Compensation Code that Applies to just US Workers if you have it', 0, 3)
+	do xml_cell_char('Please select a job family to assign the worker to which best reflects the nature of their role.  Please use the Job Family Tab for values to select (e.g. Financial Accounting, Financial Control, Accounting).', 0, 3)
+	do xml_cell_char('ID Code for the given Job Family', 0, 3)
+	do xml_cell_char('Please select a Job Family Group to assign the worker to which best reflects the nature of their role.  Please use the Job Family Tab for values to select (e.g. Human Resources, Marketing).  In the census this is currently listed as job function.', 0, 3)
+	do xml_cell_char('The description of the responsibilities and/or qualifications for the job profile.', 0, 3)
+	do xml_cell_char('The formatted job description value on the job profile.', 0, 3)
+	do xml_cell_char('Is the Job Profile Public or Not? If public that effects the visibility.', 0, 3)
+	do xml_cell_char('Category in which the Job Profile falls under.  In workday there should be a Job_Category_ID', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ISO', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Optional/Required', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+
+
+End-Procedure		!	Write_Header_Job_Profiles

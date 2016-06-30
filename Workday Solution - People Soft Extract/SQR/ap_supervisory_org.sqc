@@ -1,0 +1,346 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_supervisory_org.sqc  -- PeopleSoft Supervisory Org Ext			!
+!  Report Descriptions: This report will generate Supervisory org in Appirio Standard Data	!
+!  Gathering Workbook (DGW)									!
+!  Report Create Date: 3-Dec-2015 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!************************************
+Begin-Procedure Init_Variables_SupOrg
+!************************************
+
+ !Variables are being defaulted here.
+ LET $WorksheetName		= 'Supervisory Organizations'
+ LET $SUPORG_TYPE		= 'Division'
+ LET $SUPERIOR_ORG		= ''
+ LET $INCLUDE_MANAGER_NAME	= 'Y'
+ LET $VISIBILITY		= 'Everyone'
+
+End-Procedure
+
+!*********************************
+Begin-Procedure Main_Report_SupOrg
+!*********************************
+	do Init_Variables_SupOrg
+
+	do Get_SupOrg_Data_ByPosition		!To be used for Position management
+
+	do Get_SupOrg_Data_BySupervisor		!To be used for Job management
+
+End-Procedure
+
+
+!**********************************
+BEGIN-PROCEDURE Write_Header_SupOrg
+!**********************************
+
+	do xml_init_col(1, 1, 100, 0, 0)				!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 130, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+	do xml_init_col(7, 1, 130, 0, 0)
+	do xml_init_col(8, 1, 130, 0, 0)
+	do xml_init_col(9, 1, 130, 0, 0)
+	do xml_init_col(10, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)				!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+	LET #xml_mergeacross = 8
+	do xml_cell_char('', 0, 10)
+	
+	do xml_init_row(1, 1, 15, 0, 0)				!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 8
+	do xml_cell_char('', 0, 1)
+
+	do xml_init_row(1, 1, 15, 0, 0)				!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Supervisory Organization Name', 0, 2)
+	do xml_cell_char('Supervisory Organization Code', 0, 2)
+	do xml_cell_char('Org Sub Type', 0, 2)
+	do xml_cell_char('Location', 0, 2)
+	do xml_cell_char('Superior Organization', 0, 2)
+	LET $H	= 'Include Manager'||''''||'s Name in ID'
+	do xml_cell_char($H, 0, 2)
+	do xml_cell_char('Visibility', 0, 2)
+	do xml_cell_char('Position Management', 0, 2)
+	do xml_cell_char('Job Management', 0, 2)
+
+
+	do xml_init_row(1, 1, 55, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	LET $H	= 'If not available provide the Manager'||''''||'s Title/Position'
+	do xml_cell_char($H, 0, 3)
+	LET $H	= 'If not available provide the Manager'||''''||'s Employee ID'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Ex. Department, Division, Team, etc.', 0, 3)
+	LET $H	= 'Location ID that this Supervisory Organization is a part of.   Usually the Manager'||''''||'s Location'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Organization that this given Supervisory Organization Rolls up in to (Manages)', 0, 3)
+	LET $H	= 'Y/N Field if you would like to include the Manager'||''''||'s name in the ID'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Who can View.', 0, 3)
+	do xml_cell_char('Staffing Model Position Management', 0, 3)
+	do xml_cell_char('Staffing Model Job Management', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Dropdown', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('Optional/Required', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE
+
+!*******************************************
+Begin-Procedure Get_SupOrg_Data_BySupervisor
+!*******************************************
+LET $SUPORG_NAME = ''
+LET $SUPORG_ID	 = ''
+LET $LOCATION	 = ''
+LET $REPORTS_TO	 = ''
+LET $SUPORG_NAME = ''
+LET $POS_REPORTS_TO = ''
+
+BEGIN-SELECT DISTINCT
+JOB1.SUPERVISOR_ID
+	LET $SUPORG_ID		= ltrim(rtrim(&JOB1.SUPERVISOR_ID,' '),' ')
+	DO Get_Name($SUPORG_ID,$SUPORG_NAME)
+	DO Get_Location($SUPORG_ID,$SETID_LOCATION,$LOCATION)
+	DO Get_ManagerId($SUPORG_ID,$SUPERIOR_ORG)
+
+	IF $SUPERIOR_ORG = ''
+		DO Get_ReportsTo($SUPORG_ID,$POS_REPORTS_TO)
+		!SHOW 'EMPLID: ' &JOB4.EMPLID ' REPORTS TO: ' $REPORTS_TO ' SUPERIOR ID: ' $SUPORG_ID ' POSITION REPORTS TO: ' $POS_REPORTS_TO
+
+		DO Get_EmployeeID_ByPosition($POS_REPORTS_TO,$SUPERIOR_ORG)
+		
+		!SHOW 'POSITION REPORTS TO: ' $POS_REPORTS_TO ' SUPERIOR ID: ' $SUPERIOR_ORG
+	END-IF
+
+	do xml_init_row(1, 1, 0, 0, 0)
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($SUPORG_NAME, 0, 0)		!	Supervisory Organization Name
+	do xml_cell_char($SUPORG_ID, 0, 0)		!	Supervisory Organization Code
+	do xml_cell_char($SUPORG_TYPE, 0, 0)		!	Org Sub Type
+	do xml_cell_char($LOCATION, 0, 0)		!	Location
+	do xml_cell_char($SUPERIOR_ORG, 0, 0)		!	Superior Organization
+	do xml_cell_char($INCLUDE_MANAGER_NAME, 0, 0)	!	Include Manager's Name in ID	
+	do xml_cell_char($VISIBILITY, 0, 0)		!	Visibility
+	do xml_cell_char('N', 0, 0)			!	Staffing Model
+	do xml_cell_char('Y', 0, 0)			!	Staffing Model
+
+
+FROM PS_JOB JOB1
+WHERE JOB1.EFFDT=(SELECT MAX(JOB1_ED.EFFDT) FROM PS_JOB JOB1_ED WHERE JOB1.EMPLID= JOB1_ED.EMPLID
+AND JOB1.EMPL_RCD= JOB1_ED.EMPL_RCD AND JOB1_ED.EFFDT <= $SYSDATE)
+AND JOB1.EFFSEQ = (SELECT MAX(JOB1_ES.EFFSEQ) FROM PS_JOB JOB1_ES WHERE JOB1.EMPLID = JOB1_ES.EMPLID 
+AND JOB1.EMPL_RCD = JOB1_ES.EMPL_RCD AND JOB1.EFFDT= JOB1_ES.EFFDT)
+AND JOB1.HR_STATUS = 'A'
+AND JOB1.SUPERVISOR_ID <> ' '
+AND JOB_INDICATOR = 'P'
+AND EXISTS(SELECT 'Y' FROM PS_JOB JOB11 WHERE JOB11.EMPLID=JOB1.SUPERVISOR_ID		!to check if that supervisor is active in system
+AND JOB11.EFFDT=(SELECT MAX(JOB11_ED.EFFDT) FROM PS_JOB JOB11_ED WHERE JOB11.EMPLID= JOB11_ED.EMPLID
+AND JOB11.EMPL_RCD= JOB11_ED.EMPL_RCD AND JOB11_ED.EFFDT <= $SYSDATE)
+AND JOB11.EFFSEQ = (SELECT MAX(JOB11_ES.EFFSEQ) FROM PS_JOB JOB11_ES WHERE JOB11.EMPLID = JOB11_ES.EMPLID 
+AND JOB11.EMPL_RCD = JOB11_ES.EMPL_RCD AND JOB11.EFFDT= JOB11_ES.EFFDT)
+AND JOB_INDICATOR = 'P'
+AND JOB11.HR_STATUS = 'A')
+ORDER BY JOB1.SUPERVISOR_ID
+
+END-SELECT
+END-PROCEDURE
+
+!*****************************************
+Begin-Procedure Get_SupOrg_Data_ByPosition
+!*****************************************
+LET $SUPORG_NAME = ''
+LET $SUPORG_ID	 = ''
+LET $LOCATION	 = ''
+LET $REPORTS_TO	 = ''
+LET $SUPORG_NAME = ''
+LET $POS_REPORTS_TO = ''
+LET $SUPERIOR_ORG= ''
+
+BEGIN-SELECT DISTINCT
+!JOB4.EMPLID
+JOB4.REPORTS_TO
+	LET $SUPERIOR_ORG	= ''
+	LET $REPORTS_TO		= ''
+	LET $SUPORG_ID		= ''
+	LET $REPORTS_TO		= ltrim(rtrim(&JOB4.REPORTS_TO,' '),' ')
+	DO Get_EmployeeID_ByPosition($REPORTS_TO,$SUPORG_ID)
+	!SHOW 'REPORTS TO: ' $REPORTS_TO ' SUPERVISOR ID: ' $SUPORG_ID
+
+	DO Get_Name($SUPORG_ID,$SUPORG_NAME)
+	DO Get_Location($SUPORG_ID,$SETID_LOCATION,$LOCATION)
+	DO Get_ManagerId($SUPORG_ID,$SUPERIOR_ORG)		!To be used for Job Management
+
+	IF $SUPERIOR_ORG = ''
+		DO Get_ReportsTo($SUPORG_ID,$POS_REPORTS_TO)
+		!SHOW 'EMPLID: ' &JOB4.EMPLID ' REPORTS TO: ' $REPORTS_TO ' SUPERIOR ID: ' $SUPORG_ID ' POSITION REPORTS TO: ' $POS_REPORTS_TO
+
+		DO Get_EmployeeID_ByPosition($POS_REPORTS_TO,$SUPERIOR_ORG)
+		
+		!SHOW 'POSITION REPORTS TO: ' $POS_REPORTS_TO ' SUPERIOR ID: ' $SUPERIOR_ORG
+	END-IF
+
+	IF $SUPORG_ID <> ''
+		do xml_init_row(1, 1, 0, 0, 0)
+		do xml_cell_char('', 0, 0)
+		do xml_cell_char($SUPORG_NAME, 0, 0)		!	Supervisory Organization Name
+		do xml_cell_char($SUPORG_ID, 0, 0)		!	Supervisory Organization Code
+		do xml_cell_char($SUPORG_TYPE, 0, 0)		!	Org Sub Type
+		do xml_cell_char($LOCATION, 0, 0)		!	Location
+		do xml_cell_char($SUPERIOR_ORG, 0, 0)		!	Superior Organization
+		do xml_cell_char($INCLUDE_MANAGER_NAME, 0, 0)	!	Include Manager's Name in ID
+		do xml_cell_char($VISIBILITY, 0, 0)		!	Visibility
+		do xml_cell_char('Y', 0, 0)			!	Staffing Model
+		do xml_cell_char('N', 0, 0)			!	Staffing Model
+	END-IF
+
+FROM PS_JOB JOB4
+WHERE JOB4.EFFDT=(SELECT MAX(JOB4_ED.EFFDT) FROM PS_JOB JOB4_ED WHERE JOB4.EMPLID= JOB4_ED.EMPLID
+AND JOB4.EMPL_RCD= JOB4_ED.EMPL_RCD AND JOB4_ED.EFFDT <= $SYSDATE)
+AND JOB4.EFFSEQ = (SELECT MAX(JOB4_ES.EFFSEQ) FROM PS_JOB JOB4_ES WHERE JOB4.EMPLID = JOB4_ES.EMPLID 
+AND JOB4.EMPL_RCD = JOB4_ES.EMPL_RCD AND JOB4.EFFDT= JOB4_ES.EFFDT)
+!AND JOB4.EMPL_RCD = (SELECT MAX(JOB4_ER.EMPL_RCD) FROM PS_JOB JOB4_ER WHERE JOB4.EMPLID = JOB4_ER.EMPLID)
+AND JOB_INDICATOR	= 'P'
+AND JOB4.HR_STATUS = 'A'
+AND JOB4.REPORTS_TO <> ' '
+
+END-SELECT
+END-PROCEDURE
+
+!********************************************************
+Begin-Procedure Get_ReportsTo($SUPORG_ID,:$POS_REPORTS_TO)
+!********************************************************
+LET $POS_REPORTS_TO	= ''
+BEGIN-SELECT
+JOB6.REPORTS_TO
+	LET $POS_REPORTS_TO	= ltrim(rtrim(&JOB6.REPORTS_TO,' '),' ')
+	
+FROM PS_JOB JOB6
+WHERE JOB6.EFFDT=(SELECT MAX(JOB6_ED.EFFDT) FROM PS_JOB JOB6_ED WHERE JOB6.EMPLID= JOB6_ED.EMPLID
+AND JOB6.EMPL_RCD= JOB6_ED.EMPL_RCD AND JOB6_ED.EFFDT <= $_SYSDATE)
+AND JOB6.EFFSEQ = (SELECT MAX(JOB6_ES.EFFSEQ) FROM PS_JOB JOB6_ES WHERE JOB6.EMPLID = JOB6_ES.EMPLID 
+AND JOB6.EMPL_RCD = JOB6_ES.EMPL_RCD AND JOB6.EFFDT= JOB6_ES.EFFDT)
+AND JOB6.JOB_INDICATOR = 'P'
+AND JOB6.HR_STATUS = 'A'
+AND JOB6.EMPLID = $SUPORG_ID
+
+END-SELECT
+END-PROCEDURE
+
+!********************************************************************
+Begin-Procedure Get_EmployeeID_ByPosition($REPORTS_TO,:$EMPL_ID)		! returns First Employee ID whoever is present on that position
+!********************************************************************
+LET $EMPL_ID	= ''
+BEGIN-SELECT
+JOB5.EMPLID
+	IF $EMPL_ID	= ''
+		LET $EMPL_ID		= ltrim(rtrim(&JOB5.EMPLID,' '),' ')
+	ELSE
+		EXIT-SELECT
+	END-IF
+FROM PS_JOB JOB5
+WHERE JOB5.EFFDT=(SELECT MAX(JOB5_ED.EFFDT) FROM PS_JOB JOB5_ED WHERE JOB5.EMPLID= JOB5_ED.EMPLID
+AND JOB5.EMPL_RCD= JOB5_ED.EMPL_RCD AND JOB5_ED.EFFDT <= $_SYSDATE)
+AND JOB5.EFFSEQ = (SELECT MAX(JOB5_ES.EFFSEQ) FROM PS_JOB JOB5_ES WHERE JOB5.EMPLID = JOB5_ES.EMPLID 
+AND JOB5.EMPL_RCD = JOB5_ES.EMPL_RCD AND JOB5.EFFDT = JOB5_ES.EFFDT)
+!AND JOB5.EMPL_RCD = (SELECT MAX(JOB5_ER.EMPL_RCD) FROM PS_JOB JOB5_ER WHERE JOB5.EMPLID = JOB5_ER.EMPLID)
+AND JOB5.HR_STATUS = 'A'
+AND JOB5.JOB_INDICATOR = 'P'
+AND JOB5.POSITION_NBR = $REPORTS_TO
+END-SELECT
+END-PROCEDURE
+
+!*********************************************
+Begin-Procedure Get_Name($EMPLID,:$EMPL_NAME)
+!*********************************************
+LET $EMPL_NAME = ''
+BEGIN-SELECT
+NAM.NAME_DISPLAY
+	LET $EMPL_NAME	= ltrim(rtrim(&NAM.NAME_DISPLAY,' '),' ')
+FROM PS_NAMES NAM 
+WHERE NAM.NAME_TYPE ='PRI'
+AND NAM.EMPLID = $EMPLID
+AND NAM.EFFDT=(SELECT MAX(NAM1.EFFDT) FROM PS_NAMES NAM1 WHERE NAM.EMPLID=NAM1.EMPLID AND NAM.NAME_TYPE= NAM1.NAME_TYPE 
+AND NAM1.EFFDT<=$_SYSDATE)
+AND NAM.EFF_STATUS='A'
+END-SELECT
+END-PROCEDURE		!	Get_Name
+
+!***********************************************
+Begin-Procedure Get_Location($EMPLID,:$SETID_LOCATION,:$LOCATION)
+!***********************************************
+LET $LOCATION = ''
+BEGIN-SELECT
+JOB2.SETID_LOCATION
+JOB2.LOCATION
+	LET $SETID_LOCATION	= ltrim(rtrim(&JOB2.SETID_LOCATION,' '),' ')
+	LET $LOCATION		= ltrim(rtrim(&JOB2.LOCATION,' '),' ')
+FROM PS_JOB JOB2
+WHERE JOB2.EFFDT=(SELECT MAX(JOB2_ED.EFFDT) FROM PS_JOB JOB2_ED WHERE JOB2.EMPLID= JOB2_ED.EMPLID 
+AND JOB2.EMPL_RCD= JOB2_ED.EMPL_RCD AND JOB2_ED.EFFDT <= $_SYSDATE)
+AND JOB2.EFFSEQ = (SELECT MAX(JOB2_ES.EFFSEQ) FROM PS_JOB JOB2_ES WHERE JOB2.EMPLID = JOB2_ES.EMPLID 
+AND JOB2.EMPL_RCD = JOB2_ES.EMPL_RCD AND JOB2.EFFDT= JOB2_ES.EFFDT)
+!AND JOB2.EMPL_RCD = (SELECT MAX(JOB2_ER.EMPL_RCD) FROM PS_JOB JOB2_ER WHERE JOB2.EMPLID = JOB2_ER.EMPLID)
+AND JOB2.JOB_INDICATOR = 'P'
+AND JOB2.HR_STATUS = 'A'
+AND JOB2.EMPLID = $EMPLID
+ORDER BY SUPERVISOR_ID
+
+END-SELECT
+END-PROCEDURE		!	Get_Location
+
+!**************************************************
+Begin-Procedure Get_ManagerId($EMPLID,:$MANAGER_ID)
+!**************************************************
+LET $MANAGER_ID = ''
+BEGIN-SELECT
+JOB3.SUPERVISOR_ID
+	LET $MANAGER_ID		= ltrim(rtrim(&JOB3.SUPERVISOR_ID,' '),' ')
+FROM PS_JOB JOB3
+WHERE JOB3.EFFDT=(SELECT MAX(JOB3_ED.EFFDT) FROM PS_JOB JOB3_ED WHERE JOB3.EMPLID= JOB3_ED.EMPLID 
+AND JOB3.EMPL_RCD= JOB3_ED.EMPL_RCD AND JOB3_ED.EFFDT <= $_SYSDATE)
+AND JOB3.EFFSEQ = (SELECT MAX(JOB3_ES.EFFSEQ) FROM PS_JOB JOB3_ES WHERE JOB3.EMPLID = JOB3_ES.EMPLID 
+AND JOB3.EMPL_RCD = JOB3_ES.EMPL_RCD AND JOB3.EFFDT= JOB3_ES.EFFDT)
+!AND JOB3.EMPL_RCD = (SELECT MAX(JOB3_ER.EMPL_RCD) FROM PS_JOB JOB3_ER WHERE JOB3.EMPLID = JOB3_ER.EMPLID)
+AND JOB3.JOB_INDICATOR = 'P'
+AND JOB3.HR_STATUS = 'A'
+AND JOB3.SUPERVISOR_ID <> ' '
+AND EXISTS(SELECT 'Y' FROM PS_JOB JOB31 WHERE JOB31.EMPLID=JOB3.SUPERVISOR_ID 
+AND JOB31.EFFDT=(SELECT MAX(JOB31_ED.EFFDT) FROM PS_JOB JOB31_ED 
+WHERE JOB31.EMPLID= JOB31_ED.EMPLID AND JOB31.EMPL_RCD= JOB31_ED.EMPL_RCD AND JOB31_ED.EFFDT <= $_SYSDATE)
+AND JOB31.EFFSEQ = (SELECT MAX(JOB31_ES.EFFSEQ) FROM PS_JOB JOB31_ES WHERE JOB31.EMPLID = JOB31_ES.EMPLID
+AND JOB31.EMPL_RCD = JOB31_ES.EMPL_RCD AND JOB31.EFFDT= JOB31_ES.EFFDT)
+AND JOB_INDICATOR = 'P'
+AND JOB31.HR_STATUS = 'A')
+AND JOB3.EMPLID = $EMPLID
+ORDER BY JOB3.SUPERVISOR_ID
+
+END-SELECT
+END-PROCEDURE		!	Get_ManagerId

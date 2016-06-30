@@ -1,0 +1,124 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_cc.sqr  -- PeopleSoft Cost Centers Extract					!
+!  Report Descriptions: This report will generate Cost Centers information in Appirio Standard	!
+!  Data Gathering Workbook (DGW)								!
+!  Report Create Date: 3-Mar-2016 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!********************************
+Begin-Procedure Init_Variables_CC
+!********************************
+
+ !Variables are being defaulted here.
+
+ LET $CC_TYPE			= 'Cost Center'
+
+End-Procedure
+
+!*****************************
+Begin-Procedure Main_Report_CC
+!*****************************
+	do Init_Variables_CC
+	do get_CostCenter_data
+
+End-Procedure
+
+
+!**********************************
+Begin-Procedure get_CostCenter_data
+!**********************************
+LET $CC_NAME		= ''
+LET $CC_ID		= ''
+LET $CC_HIERARCHY	= ''
+BEGIN-SELECT
+CC.SETID
+CC.DESCR
+CC.DEPTID
+CC.DESCRSHORT
+CC.MANAGER_ID
+CC.MANAGER_POSN
+CC.MANAGER_NAME
+	LET $CC_NAME		= ltrim(rtrim(&CC.DESCR,' '),' ')
+	LET $CC_ID		= ltrim(rtrim(&CC.DEPTID,' '),' ')
+	LET $CC_DESCR		= ltrim(rtrim(&CC.DESCRSHORT,' '),' ')
+	
+	do Write_CostCenter_Data
+
+FROM PS_DEPT_TBL CC
+WHERE CC.EFFDT = (SELECT MAX(CC_ED.EFFDT) FROM PS_DEPT_TBL CC_ED WHERE CC.SETID = CC_ED.SETID AND CC.DEPTID = CC_ED.DEPTID
+AND CC_ED.EFFDT <= $SYSDATE)
+AND CC.EFF_STATUS = 'A' AND CC.DEPTID <> ' '
+END-SELECT
+END-PROCEDURE
+
+
+!************************************
+BEGIN-PROCEDURE Write_CostCenter_Data
+!************************************
+
+	do xml_init_row(1, 1, 0, 0, 0)
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($CC_NAME, 0, 0)		!	Cost Center Name
+	do xml_cell_char($CC_ID, 0, 0)			!	Cost Center ID
+	do xml_cell_char($CC_DESCR, 0, 0)		!	Cost Center Descriptions
+	do xml_cell_char($CC_HIERARCHY, 0, 0)		!	Cost Center Hierarchy
+	do xml_cell_char($CC_TYPE, 0, 0)		!	Sub Type
+
+
+END-PROCEDURE
+
+!******************************
+Begin-Procedure Write_Header_CC
+!******************************
+	do xml_init_col(1, 1, 100, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 4
+	do xml_cell_char('', 0, 1)					!($character, #column_adjust, #style_id)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Cost Center Name', 0, 2)
+	do xml_cell_char('Cost Center Code', 0, 2)
+	do xml_cell_char('Cost Center Descriptions', 0, 2)
+	do xml_cell_char('Cost Center Hierarchy', 0, 2)
+	do xml_cell_char('Sub Type', 0, 2)
+
+	do xml_init_row(1, 1, 120, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Please provide a description of the type of cost centre that the worker is assigned to (often this may be a department name that can be provided by Finance - e.g. if Cost Center ID in previous column is 90823 then the Cost Center Name may be Finance - France, Accounts Payable.  It should map to Finance cost center description.', 0, 3)
+	LET $H	= 'Please fill in the unique code that the worker'||''''||'s costs are assigned to for various accounting purposes'
+	do xml_cell_char($H, 0, 3)
+	do xml_cell_char('Provide a brief description of this cost center so we can differentiate between all of them', 0, 3)
+	do xml_cell_char('Provide the Cost Center Hierarchy that this particular Cost Center is Associated With', 0, 3)
+	do xml_cell_char('Sub type of the Cost Center (ex. Cost Center)', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text or Numeric', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE

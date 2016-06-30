@@ -1,0 +1,672 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_loc.sqc  -- PeopleSoft Positions Extract					!
+!  Report Description: This report will generate Positions information in Appirio Standard Data !
+!  Gathering Workbook (DGW)									!
+!  Report Create Date: 18-Apr-2016 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!*********************************
+Begin-Procedure Init_Variables_Pos
+!*********************************
+
+End-Procedure
+
+!******************************
+Begin-Procedure Main_Report_Pos
+!******************************
+	do Init_Variables_Pos
+	do get_Positions_Data
+
+End-Procedure
+
+!*********************************
+Begin-Procedure get_Positions_Data
+!*********************************
+BEGIN-SELECT
+POS.DESCR
+POS.ACTION
+POS.ACTION_REASON
+POS.POSITION_NBR
+POS.JOBCODE
+POS.DEPTID
+POS.BUSINESS_UNIT
+POS.COMPANY
+POS.SHIFT
+POS.UNION_CD
+POS.REG_TEMP
+POS.FULL_PART_TIME
+POS.LOCATION
+POS.REPORTS_TO
+POS.REG_REGION
+
+	LET $REQ_ID		= ''
+	LET $DEPT_NAME		= ''
+	LET $DEPT_ID		= ''
+	LET $BUS_UNIT		= ''
+	LET $EFFDT		= edit(strtodate('01/01/1900', 'MM/DD/YYYY'),'YYYY-MM-DDT00:00:00.000')		! strtodate('01/01/1900', 'MM/DD/YYYY')
+	LET $POSITION_ID	= ''
+	LET $POS_TITLE		= ''
+	LET $CRITICAL_JOB	= ''
+	LET $DIFFICULT_TO_FILL	= ''
+	LET $JOB_PROFILE_ID	= ''
+	LET $TIME_TYPE		= ''
+	LET $WORKER_TYPE	= ''
+	LET $EMP_TYPE		= ''
+	LET $SHIFT_NAME		= ''
+	LET $TARGET_HIRE_DT	= ''
+	LET $MANAGER_FIRST_NAME	= ''
+	LET $MANAGER_LAST_NAME	= ''
+	LET $DEPT_MANAGER_ID	= ''
+	LET $MANAGER_ID		= ''
+	LET $LOCATION_NAME	= ''
+	LET $WORKSPACE		= ''
+	LET $COMPANY_ID		= ''
+	LET $COMPANY_NAME	= ''
+	LET $COST_CENTER_ID	= ''
+	LET $COST_CENTER_NAME	= ''
+	LET $REGION		= ''
+	LET $DIVISION_ID	= ''
+	LET $DIVISION_NAME	= ''
+	LET $COMP_PACKAGE	= ''
+	LET $GRADE		= ''
+	LET #SALARY		= 0
+	LET $CURRENCY		= ''
+	LET $PLAN_TYPE		= ''
+	LET $EMPLID		= ''
+	LET $ACTION_REASON_CD	= ''
+
+	LET $POSITION_ID	= LTRIM(RTRIM(&POS.POSITION_NBR,' '),' ')
+	LET $POS_TITLE		= LTRIM(RTRIM(&POS.DESCR,' '),' ')
+	LET $JOB_PROFILE_ID	= LTRIM(RTRIM(&POS.JOBCODE,' '),' ')
+	LET $DEPT_ID		= LTRIM(RTRIM(&POS.DEPTID,' '),' ')
+	LET $BU_CODE		= LTRIM(RTRIM(&POS.BUSINESS_UNIT,' '),' ')
+	LET $ACTION		= LTRIM(RTRIM(&POS.ACTION,' '),' ')
+	LET $ACTION_REASON_CD	= LTRIM(RTRIM(&POS.ACTION_REASON,' '),' ')
+	LET $TIME_TYPE		= LTRIM(RTRIM(&POS.FULL_PART_TIME,' '),' ')
+	
+	LET $ACTION_REASON_KEY	= $ACTION||$ACTION_REASON_CD
+	LOOKUP ACTN_REASON_TBL $ACTION_REASON_KEY $ACTION_REASON
+	
+	Let $FIELDNAME		= 'FULL_PART_TIME'
+	Let $FIELDVALUE		= ltrim(rtrim($TIME_TYPE,' '),' ')
+	do Get_Xlat_Item
+	Let $TIME_TYPE		= $XlatLongName
+
+	do get_SetID($BU_CODE,'DEPT_TBL',$DEPT_SETID)
+	LET $DEPT_KEY = $DEPT_SETID||$DEPT_ID
+	LOOKUP DEPT_TBL $DEPT_KEY $DEPT_DETAILS
+
+	
+	
+	unstring $DEPT_DETAILS by ';' into $DEPT_NAME $DEPT_MANAGER_ID $DEPT_MANAGER_POSITION
+
+	LET $DEPT_MANAGER_POSITION	= LTRIM(RTRIM($DEPT_MANAGER_POSITION,' '),' ')
+	LET $DEPT_MANAGER_ID		= LTRIM(RTRIM($DEPT_MANAGER_ID,' '),' ')
+	
+	LET $COST_CENTER_ID		= $DEPT_ID
+	LET $COST_CENTER_NAME		= $DEPT_NAME
+	
+	LOOKUP BUS_UNIT $BU_CODE $BUS_UNIT
+
+	do Get_EmployeeID_ByPosition($POSITION_ID,$EMPLID)
+	do Get_Worker_Type					!	$WORKER_TYPE
+		
+	LET $FIELDNAME		= 'REG_TEMP'
+	LET $FIELDVALUE		= LTRIM(RTRIM(&POS.REG_TEMP,' '),' ')
+	do Get_Xlat_Item
+	LET $EMP_TYPE		= $XlatLongName
+
+	IF &POS.SHIFT		<> 'N'
+		LET $FIELDNAME		= 'SHIFT'
+		LET $FIELDVALUE		= LTRIM(RTRIM(&POS.SHIFT,' '),' ')
+		do Get_Xlat_Item
+		LET $SHIFT_NAME		= $XlatLongName
+	ELSE
+		LET $SHIFT_NAME		= ''
+	END-IF
+
+	LET $MANAGER_POSITION	= LTRIM(RTRIM(&POS.REPORTS_TO,' '),' ')
+	
+	IF $MANAGER_POSITION = '' AND $DEPT_MANAGER_POSITION <> ''
+		LET $MANAGER_POSITION	= $DEPT_MANAGER_POSITION
+	END-IF
+	
+	IF $MANAGER_POSITION <> ''
+		do Get_EmployeeID_ByPosition($MANAGER_POSITION,$MANAGER_ID)
+	END-IF
+	
+	IF $MANAGER_ID = '' AND $DEPT_MANAGER_ID <> ''
+		LET $MANAGER_ID	= $DEPT_MANAGER_ID
+	END-IF
+
+	LET $EMPLID		= $MANAGER_ID
+	do Get_Names
+	LET $MANAGER_FIRST_NAME	= $LEGAL_FIRST_NAME
+	LET $MANAGER_LAST_NAME	= $LEGAL_LAST_NAME
+
+	LET $LOCATION		= LTRIM(RTRIM(&POS.LOCATION,' '),' ')
+
+	do get_SetID($BU_CODE,'LOCATION_TBL',$LO_SETID)
+	LET $LOC_KEY = $LO_SETID||$LOCATION
+	LOOKUP LOCATION_TBL $LOC_KEY $LOCATION_DESCR
+	
+	unstring $LOCATION_DESCR by ';' into $LOCATION_NAME $LOCATION_COUNTRY
+
+	LET $COMPANY_ID		= LTRIM(RTRIM(&POS.COMPANY,' '),' ')
+
+	LOOKUP COMPANY_TBL $COMPANY_ID $COMPANY_NAME
+
+	LET $REGION		= LTRIM(RTRIM(&POS.REG_REGION,' '),' ')
+
+	do Write_Positions_Data
+FROM PS_POSITION_DATA POS
+WHERE POS.EFFDT =(SELECT MAX(POS_ED.EFFDT) FROM PS_POSITION_DATA POS_ED WHERE POS.POSITION_NBR = POS_ED.POSITION_NBR AND POS_ED.EFFDT <= $SYSDATE)
+AND POS.EFF_STATUS = 'A'
+
+END-SELECT
+
+END-PROCEDURE
+
+!*****************************************************
+BEGIN-PROCEDURE get_SetID($SET_CNTRL,$RECNAME,:$SETID)
+!*****************************************************
+LET $SETID	= ''
+BEGIN-SELECT
+SETID
+	LET $SETID	= LTRIM(RTRIM(&SETID,' '),' ')
+FROM PS_SET_CNTRL_GROUP
+WHERE SETCNTRLVALUE = $SET_CNTRL AND REC_GROUP_ID IN (SELECT REC_GROUP_ID FROM PS_REC_GROUP_REC WHERE RECNAME = $RECNAME)
+END-SELECT
+
+END-PROCEDURE
+
+
+!**********************************
+BEGIN-PROCEDURE Write_Positions_Data
+!**********************************
+
+	do xml_init_row(1, 1, 0, 0, 0)
+	do xml_cell_char('', 0, 0)			!	FIELD NAME
+	do xml_cell_char('', 0, 0)			!	Requisition ID
+	do xml_cell_char($DEPT_NAME, 0, 0)		!	Department Name
+	do xml_cell_char($DEPT_ID, 0, 0)		!	Dept Code ID
+	do xml_cell_char($BUS_UNIT, 0, 0)		!	Business Unit
+	do xml_cell_datetime($EFFDT, 0, 4)		!	effective date
+	do xml_cell_char($ACTION_REASON, 0, 0)		!	Create Position Reason
+	do xml_cell_char($POSITION_ID, 0, 0)		!	Position ID
+	do xml_cell_char($POS_TITLE, 0, 0)		!	Position Title if Different than Job Profile
+	do xml_cell_char($CRITICAL_JOB, 0, 0)		!	Critical Job
+	do xml_cell_char($DIFFICULT_TO_FILL, 0, 0)	!	Difficult to Fill
+	do xml_cell_char($JOB_PROFILE_ID, 0, 0)		!	Job Profile ID
+	do xml_cell_char($TIME_TYPE, 0, 0)		!	Time Type
+	do xml_cell_char($WORKER_TYPE, 0, 0)		!	Worker Type
+	do xml_cell_char($EMP_TYPE, 0, 0)		!	Employee Type
+	do xml_cell_char($SHIFT_NAME, 0, 0)		!	Work Shift Name
+	do xml_cell_char($TARGET_HIRE_DT, 0, 0)		!	Target Hire Date
+	do xml_cell_char($MANAGER_FIRST_NAME, 0, 0)	!	Manager First Name
+	do xml_cell_char($MANAGER_LAST_NAME, 0, 0)	!	Manager Last Name
+	do xml_cell_char($MANAGER_ID, 0, 0)		!	Manager ID
+	do xml_cell_char($LOCATION_NAME, 0, 0)		!	Worker Location Name
+	do xml_cell_char('', 0, 0)			!	Location Workspace
+	do xml_cell_char($COMPANY_ID, 0, 0)		!	Company ID
+	do xml_cell_char($COMPANY_NAME, 0, 0)		!	Company Name
+	do xml_cell_char($COST_CENTER_ID, 0, 0)		!	Cost Center ID
+	do xml_cell_char($COST_CENTER_NAME, 0, 0)	!	Cost Center Name
+	do xml_cell_char($REGION, 0, 0)			!	Region of Responsibility
+	do xml_cell_char($DIVISION_ID, 0, 0)		!	Division ID
+	do xml_cell_char($DIVISION_NAME, 0, 0)		!	Division Name
+	do xml_cell_char($COMP_PACKAGE, 0, 0)		!	Compensation Package
+	do xml_cell_char($GRADE, 0, 0)			!	Compensation Grade for Position
+	do xml_cell_char('',0, 0)			!	Salary Amount
+	do xml_cell_char($CURRENCY, 0, 0)		!	Salary Plan Currency
+	do xml_cell_char($PLAN_TYPE, 0, 0)		!	Base Salary Plan Type
+	do xml_cell_char('', 0, 0)			!	If pay based on Hourly amount
+	do xml_cell_char('', 0, 0)			!	If pay based on Hourly rate, frequency
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Company/Lease Car
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Auto Allowance
+	do xml_cell_char('', 0, 0)			!	Frequency
+	do xml_cell_char('', 0, 0)			!	Currency
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Housing Allowance
+	do xml_cell_char('', 0, 0)			!	Frequency
+	do xml_cell_char('', 0, 0)			!	Currency
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Other (Description)
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Other (Value)
+	do xml_cell_char('', 0, 0)			!	Currency
+	do xml_cell_char('', 0, 0)			!	Frequency
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Other (Description)
+	do xml_cell_char('', 0, 0)			!	Allowance Plan - Other (Value)
+	do xml_cell_char('', 0, 0)			!	Currency
+	do xml_cell_char('', 0, 0)			!	Frequency
+	do xml_cell_char('', 0, 0)			!	Bonus Plan Target
+	do xml_cell_char('', 0, 0)			!	Bonus Plan Target - Contractual?
+	do xml_cell_char('', 0, 0)			!	Bonus Tier
+	do xml_cell_char('', 0, 0)			!	Frequency
+	do xml_cell_char('', 0, 0)			!	Merit Plan Target
+	do xml_cell_char('', 0, 0)			!	Frequency
+
+END-PROCEDURE
+
+!********************************
+BEGIN-PROCEDURE Write_Header_Pos
+!********************************
+
+	do xml_init_col(1, 1, 120, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 130, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+	do xml_init_col(7, 1, 130, 0, 0)
+	do xml_init_col(8, 1, 130, 0, 0)
+	do xml_init_col(9, 1, 150, 0, 0)
+	do xml_init_col(10, 1, 150, 0, 0)
+	do xml_init_col(11, 1, 130, 0, 0)
+	do xml_init_col(12, 1, 130, 0, 0)
+	do xml_init_col(13, 1, 130, 0, 0)
+	do xml_init_col(14, 1, 130, 0, 0)
+	do xml_init_col(15, 1, 130, 0, 0)
+	do xml_init_col(16, 1, 130, 0, 0)
+	do xml_init_col(17, 1, 130, 0, 0)
+	do xml_init_col(18, 1, 130, 0, 0)
+	do xml_init_col(19, 1, 130, 0, 0)
+	do xml_init_col(20, 1, 130, 0, 0)
+	do xml_init_col(21, 1, 150, 0, 0)
+	do xml_init_col(22, 1, 150, 0, 0)
+	do xml_init_col(23, 1, 150, 0, 0)
+	do xml_init_col(24, 1, 150, 0, 0)
+	do xml_init_col(25, 1, 150, 0, 0)
+	do xml_init_col(26, 1, 150, 0, 0)
+	do xml_init_col(27, 1, 150, 0, 0)
+	do xml_init_col(28, 1, 150, 0, 0)
+	do xml_init_col(29, 1, 150, 0, 0)
+	do xml_init_col(30, 1, 150, 0, 0)
+	do xml_init_col(31, 1, 150, 0, 0)
+	do xml_init_col(32, 1, 150, 0, 0)
+	do xml_init_col(33, 1, 150, 0, 0)
+	do xml_init_col(34, 1, 150, 0, 0)
+	do xml_init_col(35, 1, 150, 0, 0)
+	do xml_init_col(36, 1, 150, 0, 0)
+	do xml_init_col(37, 1, 150, 0, 0)
+	do xml_init_col(38, 1, 150, 0, 0)
+	do xml_init_col(39, 1, 150, 0, 0)
+	do xml_init_col(40, 1, 150, 0, 0)
+	do xml_init_col(41, 1, 150, 0, 0)
+	do xml_init_col(42, 1, 150, 0, 0)
+	do xml_init_col(43, 1, 150, 0, 0)
+	do xml_init_col(44, 1, 150, 0, 0)
+	do xml_init_col(45, 1, 150, 0, 0)
+	do xml_init_col(46, 1, 150, 0, 0)
+	do xml_init_col(47, 1, 150, 0, 0)
+	do xml_init_col(48, 1, 150, 0, 0)
+	do xml_init_col(49, 1, 150, 0, 0)
+	do xml_init_col(50, 1, 150, 0, 0)
+	do xml_init_col(51, 1, 150, 0, 0)
+	do xml_init_col(52, 1, 150, 0, 0)
+	do xml_init_col(53, 1, 150, 0, 0)
+	do xml_init_col(54, 1, 150, 0, 0)
+	do xml_init_col(55, 1, 150, 0, 0)
+	do xml_init_col(56, 1, 150, 0, 0)
+	do xml_init_col(57, 1, 150, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	do xml_cell_char('EMPLOYEE', 0, 1)
+	do xml_cell_char('Department', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Business Unit', 0, 1)
+	do xml_cell_char('', 0, 1)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('POSITION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('SERVICE DATE', 0, 1)
+	do xml_cell_char('SUPERVISORY ORGANISATION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('LOCATION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('ORGANIZATION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('COMPENSATION ', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Allowance Plan 1', 0, 1)
+	do xml_cell_char('Allowance Plan 2', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Allowance Plan 3', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Allowance Plan 4', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Allowance Plan 5', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Bonus Plan', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Merit Plan', 0, 1)
+	do xml_cell_char('', 0, 1)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Requisition ID', 0, 2)
+	do xml_cell_char('Department Name', 0, 2)
+	do xml_cell_char('Dept Code ID', 0, 2)
+	do xml_cell_char('Business Unit', 0, 2)
+	do xml_cell_char('effective date', 0, 2)
+	do xml_cell_char('Create Position Reason', 0, 2)
+	do xml_cell_char('Position ID', 0, 2)
+	do xml_cell_char('Position Title if Different than Job Profile', 0, 2)
+	do xml_cell_char('Critical Job', 0, 2)
+	do xml_cell_char('Difficult to Fill', 0, 2)
+	do xml_cell_char('Job Profile ID', 0, 2)
+	do xml_cell_char('Time Type', 0, 2)
+	do xml_cell_char('Worker Type', 0, 2)
+	do xml_cell_char('Employee Type', 0, 2)
+	do xml_cell_char('Work Shift Name', 0, 2)
+	do xml_cell_char('Target Hire Date', 0, 2)
+	do xml_cell_char('Manager First Name', 0, 2)
+	do xml_cell_char('Manager Last Name', 0, 2)
+	do xml_cell_char('Manager ID', 0, 2)
+	do xml_cell_char('Worker Location Name', 0, 2)
+	do xml_cell_char('Location Workspace', 0, 2)
+	do xml_cell_char('Company ID', 0, 2)
+	do xml_cell_char('Company Name', 0, 2)
+	do xml_cell_char('Cost Center ID', 0, 2)
+	do xml_cell_char('Cost Center Name', 0, 2)
+	do xml_cell_char('Region of Responsibility', 0, 2)
+	do xml_cell_char('Division ID', 0, 2)
+	do xml_cell_char(' Division Name', 0, 2)
+	do xml_cell_char('Compensation Package', 0, 2)
+	do xml_cell_char('Compensation Grade for Position', 0, 2)
+	do xml_cell_char('Salary Amount', 0, 2)
+	do xml_cell_char('Salary Plan Currency', 0, 2)
+	do xml_cell_char('Base Salary Plan Type', 0, 2)
+	do xml_cell_char('If pay based on Hourly amount…', 0, 2)
+	do xml_cell_char('If pay based on Hourly rate, frequency…', 0, 2)
+	do xml_cell_char('Allowance Plan - Company/Lease Car', 0, 2)
+	do xml_cell_char('Allowance Plan - Auto Allowance', 0, 2)
+	do xml_cell_char('Frequency', 0, 2)
+	do xml_cell_char('Currency', 0, 2)
+	do xml_cell_char('Allowance Plan - Housing Allowance', 0, 2)
+	do xml_cell_char('Frequency', 0, 2)
+	do xml_cell_char('Currency', 0, 2)
+	do xml_cell_char('Allowance Plan - Other (Description)', 0, 2)
+	do xml_cell_char('Allowance Plan - Other (Value)', 0, 2)
+	do xml_cell_char('Currency', 0, 2)
+	do xml_cell_char('Frequency', 0, 2)
+	do xml_cell_char('Allowance Plan - Other (Description)', 0, 2)
+	do xml_cell_char('Allowance Plan - Other (Value)', 0, 2)
+	do xml_cell_char('Currency', 0, 2)
+	do xml_cell_char('Frequency', 0, 2)
+	do xml_cell_char('Bonus Plan Target', 0, 2)
+	do xml_cell_char('Bonus Plan Target - Contractual?', 0, 2)
+	do xml_cell_char('Bonus Tier', 0, 2)
+	do xml_cell_char('Frequency', 0, 2)
+	do xml_cell_char('Merit Plan Target', 0, 2)
+	do xml_cell_char('Frequency', 0, 2)
+
+	do xml_init_row(1, 1, 100, 0, 0)
+
+	LET $H1 = 'SPECIAL INSTRUCTIONS'
+	LET $H2 = 'Unique identifier for the open job requisition'
+	LET $H3 = 'Please provide the name of the department that the employee works in as described by you locally (eg Accounts Payable, Marketing, Infrastructure Services)'
+	LET $H4 = 'Please provide the ID code (if available) that is used to describe the Department Name (may be for financial reporting purposes)'
+	LET $H5 = 'Please select a business unit from the Business Unit tab if the employee is attached to one of the business units listed.  If they are not part of  a business unit listed, please leave blank.  If there is a business unit that you have identified that you think is missing from the global business unit list, please add it here.'
+	LET $H6 = ''
+	LET $H7 = ''
+	LET $H8 = 'Must be globally unique.  Territories do NOT need to complete.  This will be managed centrally.'
+	LET $H9 = ''
+	LET $H10 = ''
+	LET $H11 = ''
+	LET $H12 = 'Returns the Job Profile profile for the worker'
+	LET $H13 = '"Full Time" or "Part Time"– please enter Full Time for an employee who works for 5 days a week, the usual working hours. For any employee that works less than the normal office hours please enter Part Time. '
+	LET $H14 = ''
+	LET $H15 = 'Please enter here the type of employee.  The options are:  Regular (for workers on the payroll on a continuous, permanent basis, i.e. ongoing contracts with no envisaged end date unless either party terminates the employment); Temporary/Fixed-Term (for workers on the payroll with a defined end date contractually agreed); Student/Intern ; Seasonal (to be used if a worker is hired solely for seasonal work activity, as opposed to long-term or fixed / temporary periods).' !shortenend
+	LET $H16 = 'If shift patterns operate, please provide indication of the type of shift (e.g. "Day", "Evening" or "Night")'
+	LET $H17 = ''
+	LET $H18 = 'Please list the worker'||''''||'s manager'||''''||'s first name '
+	LET $H19 = 'Please list the worker'||''''||'s manager'||''''||'s family/last name'
+	LET $H20 = 'Please list the worker'||''''||'s manager'||''''||'s unique Employee ID'
+	LET $H21 = 'Please add the name of the worker'||''''||'s office location as found in the LOCATION section (e.g. 1633, Broadway, NYC)'
+	LET $H22 = 'Please detail the office floor where the employee works - e.g. '||''''||'Floor 2'||''''||' (to align with location workspace set up in the Locations tab; if collected / required for health and safety etc.)'
+	LET $H23 = 'This Unique Identifier refers to the COMPANY section and will be added centrally.  Territories do NOT need to complete this.'
+	LET $H24 = 'Please add in the Company Name based on the data set up in the Company data tab.  This should be the legal entity that the worker is employed by.'
+	LET $H25 = 'Please fill in the unique code that the worker'||''''||'s costs are assigned to for various accounting purposes'
+	LET $H26 = 'Please provide a description of the type of cost centre that the worker is assigned to (often this may be a department name that can be provided by Finance - e.g. if Cost Center ID in previous column is 90823 then the Cost Center Name may be Finance - France, Accounts Payable.  It should map to Finance cost center description.'
+	LET $H27 = 'Countries/areas for which the employee is responsible (could be same as country of location); broad geographic area of operations, generally used to segregate groups of countries.  For example, an MD may be responsible for the Nordics, but based in Sweden.  The Nordics would therefore be listed here.'
+	LET $H28 = 'This will be defined centrally.  Territories are NOT required to complete this.'
+	LET $H29 = 'Does the employee sit in '||''''||'Corporate'||''''||', '||''''||'Sales/Marketing'||''''||' or '||''''||'Publishing'||''''||'?  Please specify one of these three options.'
+	LET $H30 = ''
+	LET $H31 = 'This is a placeholder for a grade to be assigned to a Position.  This will be managed centrally.  No territory input required.'
+	LET $H32 = ''
+	LET $H33 = 'Please indicate the currency that is used contractually to describe and pay a worker'||''''||'s basic salary (e.g. GBP, USD, HKD)'
+	LET $H34 = 'Please indicate how a worker is paid in accordance with their contract using either Annual Salary (for employees who have terms and conditions and salary reviews based on an annualised figure of basic pay); Monthly Salary ; Weekly Rate ; Daily Rate ; Hourly Rate .'		! Description has been shortenend
+	LET $H35 = 'If a worker'||''''||'s pay is based on an hourly amount, please specify value here in local currency.  Please leave blank if pay is not based on hourly amount.'
+	LET $H36 = 'If a worker'||''''||'s base salary is calculated on an hourly rate of pay, please document the number of hours that are used to calculate a week of pay for the worker (e.g. 40 hours, 35 hours, 38 hours).  If not paid hourly, leave blank.'
+	LET $H37 = 'Please provide details of any company car / lease vehicle provided to the worker (type / cost).  Please leave blank if none provided.'
+	LET $H38 = 'Please provide details in local currency of the value of any auto allowance / car allowance provided to the worker.  Please leave blank if none provided.'
+	LET $H39 = 'If applicable, please confirm the frequency of payment of the Auto Allowance value quoted in the previous column (if applicable).  E.g., annual; monthly; weekly'
+	LET $H40 = 'Please confirm the currency used to pay the auto allowance (if applicable) - e.g. GBP, AUS, NZD, CZK.  Leave blank of not applicable.'
+	LET $H41 = 'If any workers are in receipt of a housing allowance, please confirm value of this in local currency here (leave blank if not applicable to worker record).'
+	LET $H42 = 'If applicable, please provide details of frequency of payment of the Housing Allowance value quoted in the previous column (e.g. annual; monthly; weekly)'
+	LET $H43 = 'Please confirm the currency used to pay the housing allowance (if applicable) - e.g. GBP, AUS, NZD, CZK.  Leave blank if not applicable.'
+	LET $H44 = 'If any workers are in receipt of another allowance (regular payment via payroll), please describe the allowance here (e.g. Cost of Living Allowance)'
+	LET $H45 = 'If you identified an additional allowance in the previous column, please confirm value of this in local currency here (leave blank if not applicable to worker record).'
+	LET $H46 = 'If applicable, please provide details of frequency of payment of the allowance plan identified in column in the prior two columns (e.g. annual; monthly; weekly)'
+	LET $H47 = 'Please confirm the currency used to pay this other allowance (if applicable) - e.g. GBP, AUS, NZD, CZK.  Leave blank if not applicable.'
+	LET $H48 = 'If any workers are in receipt of another allowance (regular payment via payroll), please describe the allowance here (e.g. Cost of Living Allowance)'
+	LET $H49 = 'If you identified an additional allowance in the previous column, please confirm value of this in local currency here (leave blank if not applicable to worker record).'
+	LET $H50 = 'If applicable, please provide details of frequency of payment of the allowance plan identified in column in the prior two columns (e.g. annual; monthly; weekly)'
+	LET $H51 = 'Please confirm the currency used to pay this other allowance (if applicable) - e.g. GBP, AUS, NZD, CZK.  Leave blank if not applicable.'
+	LET $H52 = 'Please indicate the target bonus amount (in local currency) or % as per contract or budgeted targets.  If none leave blank.  If discretionary, please indicate so (e.g. 10% - discretionary)'
+	LET $H53 = 'Is the bonus plan target % or amount contractual?  Yes or No.'
+	LET $H54 = 'Please indicate tier 1, 2 or 3 in accordance with prior census data'
+	LET $H55 = 'Please confirm frequency of bonus payment(s). E.g. annually, bi-annually, monthly etc.'
+	LET $H56 = 'Please provide % (or amount in local currency) merit increase targeted for forthcoming salary reviews (leave blank if unknown)'
+	LET $H57 = 'Please detail frequency of merit reviews (e.g. annual, bi-annual, aligned to employee rep body negotiations etc.)'
+
+	do xml_cell_char($H1, 0, 3)
+	do xml_cell_char($H2, 0, 3)
+	do xml_cell_char($H3, 0, 3)
+	do xml_cell_char($H4, 0, 3)
+	do xml_cell_char($H5, 0, 3)
+	do xml_cell_char($H6, 0, 3)
+	do xml_cell_char($H7, 0, 3)
+	do xml_cell_char($H8, 0, 3)
+	do xml_cell_char($H9, 0, 3)
+	do xml_cell_char($H10, 0, 3)
+	do xml_cell_char($H11, 0, 3)
+	do xml_cell_char($H12, 0, 3)
+	do xml_cell_char($H13, 0, 3)
+	do xml_cell_char($H14, 0, 3)
+	do xml_cell_char($H15, 0, 3)
+	do xml_cell_char($H16, 0, 3)
+	do xml_cell_char($H17, 0, 3)
+	do xml_cell_char($H18, 0, 3)
+	do xml_cell_char($H19, 0, 3)
+	do xml_cell_char($H20, 0, 3)
+	do xml_cell_char($H21, 0, 3)
+	do xml_cell_char($H22, 0, 3)
+	do xml_cell_char($H23, 0, 3)
+	do xml_cell_char($H24, 0, 3)
+	do xml_cell_char($H25, 0, 3)
+	do xml_cell_char($H26, 0, 3)
+	do xml_cell_char($H27, 0, 3)
+	do xml_cell_char($H28, 0, 3)
+	do xml_cell_char($H29, 0, 3)
+	do xml_cell_char($H30, 0, 3)
+	do xml_cell_char($H31, 0, 3)
+	do xml_cell_char($H32, 0, 3)
+	do xml_cell_char($H33, 0, 3)
+	do xml_cell_char($H34, 0, 3)
+	do xml_cell_char($H35, 0, 3)
+	do xml_cell_char($H36, 0, 3)
+	do xml_cell_char($H37, 0, 3)
+	do xml_cell_char($H38, 0, 3)
+	do xml_cell_char($H39, 0, 3)
+	do xml_cell_char($H40, 0, 3)
+	do xml_cell_char($H41, 0, 3)
+	do xml_cell_char($H42, 0, 3)
+	do xml_cell_char($H43, 0, 3)
+	do xml_cell_char($H44, 0, 3)
+	do xml_cell_char($H45, 0, 3)
+	do xml_cell_char($H46, 0, 3)
+	do xml_cell_char($H47, 0, 3)
+	do xml_cell_char($H48, 0, 3)
+	do xml_cell_char($H49, 0, 3)
+	do xml_cell_char($H50, 0, 3)
+	do xml_cell_char($H51, 0, 3)
+	do xml_cell_char($H52, 0, 3)
+	do xml_cell_char($H53, 0, 3)
+	do xml_cell_char($H54, 0, 3)
+	do xml_cell_char($H55, 0, 3)
+	do xml_cell_char($H56, 0, 3)
+	do xml_cell_char($H57, 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text or Number', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text/Numeric', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Date', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('List', 0, 10)
+	do xml_cell_char('List', 0, 10)
+	do xml_cell_char('List', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Number or Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Currency', 0, 10)
+	do xml_cell_char('Currency', 0, 10)
+	do xml_cell_char('Text (Annual / Monthly / Weekly / Daily / Hourly)', 0, 10)
+	do xml_cell_char('Local Currency', 0, 10)
+	do xml_cell_char('Number (Hours in a week period)', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text (% or Amount)', 0, 10)
+	do xml_cell_char('Text (Y or N)', 0, 10)
+	do xml_cell_char('Number (1, 2 or 3)', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Optional/Required', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('', 0, 9)
+	do xml_cell_char('', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE

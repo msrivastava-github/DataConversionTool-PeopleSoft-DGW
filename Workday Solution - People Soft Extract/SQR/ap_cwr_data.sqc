@@ -1,0 +1,812 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_cwr_data.sqc  -- PeopleSoft Contingent Worker Data				!
+!  Report Description: This report will generate Contingent Worker information in Appirio	!
+!  Standard Data Gathering Workbook (DGW)							!
+!  Report Create Date: 19-May-2016 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+
+!*********************************
+Begin-Procedure Init_Variables_CWR
+!*********************************
+	LET $COMPANY_INSIDER_TYPE_NAME		= ''
+	LET $ANNUAL_WORK_PERIOD_NAME		= ''
+	LET $DISBURSEMENT_PLAN_PERIOD_NAME	= ''
+	
+	Let $PHONE_DEVICE_TYPE	= 'Landline'
+	Let $PASSPORT_TYPE_NAME	= ''
+	Let $PASSPORT_TYPE	= 'STANDARD'
+	Let $E_ADDR_TYPE	= 'E_ADDR_TYPE IN ('
+	Let $E_ADDR_TYPE	= $E_ADDR_TYPE|| '''' || 'HOME' || ''''||', ' ||''''|| 'BUSN' ||'''' || ')'		! Configure here what Email Address types we require. Possible types are DORM, BUSN, HOME, OTHR & CAMP.
+
+	!Address type(s) can be removed from below string if we don't want to extract particular Address Type(s)
+	Let $ADDRESS_TYPE	= 'AND ADDRESS_TYPE IN ('
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'HOME' || ''''||', ' ||''''|| 'MAIL' ||''''||', ' ||''''|| 'BUSN' ||'''' || ', '
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'CHK' || ''''||', ' ||''''|| 'DORM' ||''''||', ' ||''''|| 'LEGL' ||'''' || ', '
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'CAMP' || ''''||', ' ||''''|| 'OTH' ||''''||', ' ||''''|| 'BILL' ||'''' || ', '
+	Let $ADDRESS_TYPE	= $ADDRESS_TYPE|| '''' || 'OTH2' || ''''||', ' ||''''|| 'PERM' ||''''||', ' ||''''|| 'PREF' ||'''' ||', ' ||''''|| 'VTRN' ||'''' || ')'
+		
+	load-lookup
+	name=NEE_PROVIDR_TBL
+	table=PS_NEE_PROVIDR_TBL
+	key=NEE_PROVIDER_ID
+	return_value=DESCR50||';'||CONTACT_NAME||';'||COUNTRY
+	QUIET
+	
+End-Procedure
+
+!******************************
+Begin-Procedure Main_Report_CWR
+!******************************
+
+	do Init_Variables_CWR
+
+	do get_CWR_Data
+
+End-Procedure
+
+!***************************
+Begin-Procedure get_CWR_Data
+!***************************
+BEGIN-SELECT
+JB2.EMPLID
+JB2.EMPL_RCD
+JB2.EFFSEQ
+JB2.EFFDT
+JB2.EMPL_STATUS
+JB2.HIRE_DT
+JB2.LAST_HIRE_DT
+JB2.REG_REGION
+JB2.SETID_DEPT
+JB2.DEPTID
+JB2.BUSINESS_UNIT
+JB2.POSITION_NBR
+JB2.SETID_JOBCODE
+JB2.JOBCODE
+JB2.SETID_LOCATION
+JB2.LOCATION
+JB2.FULL_PART_TIME
+JB2.STD_HOURS
+JB2.REPORTS_TO
+JB2.SUPERVISOR_ID
+JB2.COMPANY
+JB2.PAY_SYSTEM_FLG
+JB2.PAYGROUP
+JB2.GP_PAYGROUP
+JB2.CONTRACT_NUM
+JB2.REG_TEMP
+JB2.EXPECTED_END_DATE
+JB2.ACTION
+JB2.TERMINATION_DT
+JB2.GRADE
+JB2.SHIFT
+JB2.STD_HRS_FREQUENCY
+	LET $EMPLID1			= ''
+	LET $EMPL_STATUS		= ''
+	LET $EMP_TYPE			= ''
+	LET #EMPL_RCD			= 0
+	LET $EMPLID			= ''
+	LET $LOCATION			= ''
+	LET $LOC_KEY 			= ''
+	LET $HIRE_DT			= ''
+	LET $ORG_HIRE_DT		= ''
+	LET $REGION			= ''
+	LET $REG_REGION			= ''
+	LET $COMPANY			= ''
+	LET $COMPANY_ID			= ''
+	LET #SCHEDULED_WEEKLY_HRS 	= 0
+	LET $CWR_FIRST_NAME		= ''
+	LET $CWR_LAST_NAME		= ''
+	LET $CWR_SECONDARY_NAME		= ''
+	LET $CWR_NAME_TITLE		= ''
+	LET $PAYGROUP_NAME		= ''
+	LET $PAYGROUP_KEY		= ''
+	LET $PAYGROUP_COUNTRY		= ''
+	LET $PAYGROUP_ID		= ''
+	LET $PAYGROUP_DESCR		= ''
+	LET $PAYGROUP			= ''
+	LET $PROBATION_START_DT		= ''
+	LET $PROBATION_END_DT		= ''
+	LET $END_EMPLOYMENT_DT		= ''
+	LET $RETIREMENT_DT		= ''
+	LET $MANAGER_POSITION		= ''
+	LET $MANAGER_ID			= ''
+	LET $VENDOR_MANAGER_ID		= ''
+	LET $MANAGER_FIRST_NAME		= ''
+	LET $MANAGER_MIDDLE_NAME	= ''
+	LET $MANAGER_LAST_NAME		= ''
+	LET $MANAGER_NAME		= ''
+	LET $SUPERVISOR_ID		= ''
+	LET $MANAGER_LOCATION		= ''
+	LET $MANAGER_LOCATION_DESCR	= ''
+	LET $MANAGER_LOCATION_NAME	= ''
+	LET $MANAGER_LOCATION_COUNTRY   = ''
+	LET $LOCATION_DESCR		= ''
+	LET $SUPPLIER			= ''
+	LET $SUPPLIER_DETAILS		= ''
+	LET $CONTRACT_NUM		= ''
+	LET $CONTRACT_BEGIN_DT		= ''
+	LET $CONTRACT_END_DT		= ''
+	LET $FREQ_SERVICES		= ''
+	LET $FREQ_DETAILS		= ''
+	LET #FREQ_ANNUAL_FACTOR 	= 0
+	LET $FREQ_ANNUAL_FACTOR 	= ''
+	LET $USE_STD_HOURS		= ''
+	LET $STD_HRS_FREQUENCY		= ''
+	LET $DEPT_CODE_ID		= ''
+	LET $DEPT_NAME			= ''
+	LET $LOCATION_COUNTRY		= ''
+	LET $USERNAME			= ''
+	
+	LET $EMPLID			= ltrim(rtrim(&JB2.EMPLID,' '),' ')
+	LET #EMPL_RCD			= &JB2.EMPL_RCD
+	
+	Let $CONTRACT_NUM		= ltrim(rtrim(&JB2.CONTRACT_NUM,' '),' ')
+	DO Get_Contract_Data
+	DO Get_Contract_Probation_Date
+	LET $FIELDNAME			= 'EMPL_STATUS'
+	LET $FIELDVALUE			= ltrim(rtrim(&JB2.EMPL_STATUS,' '),' ')
+	do Get_Xlat_Item
+	LET $EMPL_STATUS		= $XlatLongName
+	
+	LET $STD_HRS_FREQUENCY		= ltrim(rtrim(&JB2.STD_HRS_FREQUENCY,' '),' ')
+	lookup FREQUENCY_TBL $STD_HRS_FREQUENCY $FREQ_DETAILS
+	unstring $FREQ_DETAILS by ';' into $FREQ_SERVICES $FREQ_ANNUAL_FACTOR $USE_STD_HOURS
+	LET #FREQ_ANNUAL_FACTOR		= TO_NUMBER($FREQ_ANNUAL_FACTOR)
+	
+	LET $LOCATION			= LTRIM(RTRIM(&JB2.LOCATION,' '),' ')
+	LET $COMPANY_ID			= LTRIM(RTRIM(&JB2.COMPANY,' '),' ')
+	LOOKUP COMPANY_TBL $COMPANY_ID $COMPANY
+	
+	LET $DEPT_CODE_ID		= ltrim(rtrim(&JB2.DEPTID,' '),' ')
+	LET $DEPT_KEY			= ltrim(rtrim(&JB2.SETID_DEPT,' '),' ')||$DEPT_CODE_ID
+	lookup DEPT_TBL $DEPT_KEY $DEPT_DETAILS
+
+	unstring $DEPT_DETAILS by ';' into $DEPT_NAME $DEPT_MANAGER_ID $DEPT_MANAGER_POSITION
+
+	LET $BU				= ltrim(rtrim(&JB2.BUSINESS_UNIT,' '),' ')
+	lookup BUS_UNIT $BU $BUSINESS_UNIT
+
+	LET $REG_REGION			= ltrim(rtrim(&JB2.REG_REGION,' '),' ')
+	lookup REG_REGION $REG_REGION $REGION
+	
+	do Get_Birth_Data
+	do Get_Names
+	LET $CWR_FIRST_NAME		= $LEGAL_FIRST_NAME
+	LET $CWR_LAST_NAME		= $LEGAL_LAST_NAME
+	LET $CWR_SECONDARY_NAME		= $LEGAL_SECONDARY_NAME
+	LET $CWR_NAME_TITLE		= $NAME_PREFIX
+	do Get_Email_Addresses
+	do Get_Phone_Numbers
+	do Get_Address_Data
+	do Get_Marital_Status_Data
+	do Get_Disability
+	
+	LET $POSITION_ID		= ltrim(rtrim(&JB2.POSITION_NBR,' '),' ')
+	do get_Business_Title
+	
+	LET $JOBCODE			= ltrim(rtrim(&JB2.JOBCODE,' '),' ')
+	LET $JOB_CODE_KEY		= &JB2.SETID_JOBCODE||$JOBCODE
+	LET $JOB_CODE_DETAIL		= ''
+	LET $WORK_HOURS_PROFILE		= ''
+	LET $WORK_HOURS_PROFILE_CODE	= ''
+
+	lookup JOBCODE_TBL $JOB_CODE_KEY $JOB_CODE_DETAIL
+	unstring $JOB_CODE_DETAIL by ';' into $JOB_PROFILE $WORK_HOURS_PROFILE_CODE
+
+	lookup FREQUENCY_TBL $WORK_HOURS_PROFILE_CODE $WORK_HOURS_PROFILE_DESCR
+	
+	LET $TIME_TYPE			= ltrim(rtrim(&JB2.FULL_PART_TIME,' '),' ')
+	Let $FIELDNAME			= 'FULL_PART_TIME'
+	Let $FIELDVALUE			= ltrim(rtrim($TIME_TYPE,' '),' ')
+	do Get_Xlat_Item
+	Let $TIME_TYPE			= $XlatLongName
+	LET #SCHEDULED_WEEKLY_HRS 	= &JB2.STD_HOURS
+	
+	LET $MANAGER_POSITION		= LTRIM(RTRIM(&JB2.REPORTS_TO,' '),' ')
+	LET $SUPERVISOR_ID		= LTRIM(RTRIM(&JB2.SUPERVISOR_ID,' '),' ')
+		
+	IF $MANAGER_POSITION <> ''
+		do Get_EmployeeID_ByPosition($MANAGER_POSITION,$MANAGER_ID)
+		
+		ELSE
+		
+		IF $SUPERVISOR_ID <> ''
+			LET $MANAGER_ID	= $SUPERVISOR_ID
+		END-IF
+	END-IF
+	
+	LET $LO_SETID		= LTRIM(RTRIM(&JB2.SETID_LOCATION,' '),' ')
+	LET $LOC_KEY 		= $LO_SETID||$LOCATION
+	LOOKUP LOCATION_TBL $LOC_KEY $LOCATION_DESCR
+	unstring $LOCATION_DESCR by ';' into $LOCATION_NAME $LOCATION_COUNTRY
+	
+	EVALUATE &JB2.PAY_SYSTEM_FLG
+	WHEN = 'GP'
+	
+	LET $PAYGROUP_ID	= ltrim(rtrim(&JB2.GP_PAYGROUP,' '),' ')
+	lookup GP_PYGRP $PAYGROUP_ID $PAYGROUP_NAME
+	do Get_PayGroup_Country
+	
+	BREAK
+	
+	WHEN-Other
+		LET $PAYGROUP_ID	= ltrim(rtrim(&JB2.PAYGROUP,' '),' ')
+		LET $PAYGROUP_KEY	= $COMPANY_ID||$PAYGROUP_ID
+		lookup PAYGROUP_TBL $PAYGROUP_KEY $PAYGROUP_DESCR
+		unstring $PAYGROUP_DESCR by ';' into $PAYGROUP_NAME $PAYGROUP_COUNTRY
+	BREAK
+	
+	END-EVALUATE
+	
+	IF &JB2.SHIFT		<> 'N'
+		LET $FIELDNAME		= 'SHIFT'
+		LET $FIELDVALUE		= LTRIM(RTRIM(&JB2.SHIFT,' '),' ')
+		do Get_Xlat_Item
+		LET $SHIFT_NAME		= $XlatLongName
+		
+	ELSE
+		LET $SHIFT_NAME		= ''
+	END-IF
+	
+	LET $GRADE			= ltrim(rtrim(&JB2.GRADE,' '),' ')
+	
+	
+	LET $PROBATION_START_DT	= edit(&JB2.HIRE_DT,'YYYY-MM-DDT00:00:00.000')
+	LET $END_EMPLOYMENT_DT	= edit(&JB2.EXPECTED_END_DATE,'YYYY-MM-DDT00:00:00.000')
+	
+	LET $ACTION= ltrim(rtrim(&JB2.ACTION,' '),' ')
+	IF $ACTION = 'RET' OR $ACTION = 'RWP'
+		LET $RETIREMENT_DT	= edit(&JB2.TERMINATION_DT,'YYYY-MM-DDT00:00:00.000')
+	END-IF
+	do Get_Severence_Date
+	do Get_Bank_Account_Data
+	do Get_UserName
+	do write_CWR_Data
+	
+FROM PS_JOB JB2
+WHERE JB2.EFFDT    =
+  (SELECT MAX(JB2_ED.EFFDT)
+  FROM PS_JOB JB2_ED
+  WHERE JB2.EMPLID  = JB2_ED.EMPLID
+  AND JB2.EMPL_RCD  = JB2_ED.EMPL_RCD
+  AND JB2_ED.EFFDT <= $SYSDATE
+  )
+AND JB2.EFFSEQ =
+  (SELECT MAX(JB2_ES.EFFSEQ)
+  FROM PS_JOB JB2_ES
+  WHERE JB2.EMPLID = JB2_ES.EMPLID
+  AND JB2.EMPL_RCD = JB2_ES.EMPL_RCD
+  AND JB2.EFFDT    = JB2_ES.EFFDT
+  )
+  AND PER_ORG		= 'CWR'
+  AND JOB_INDICATOR	= 'P'				!Primary job only
+ORDER BY JB2.EMPLID, JB2.EMPL_RCD, JB2.EFFSEQ
+END-SELECT
+END-PROCEDURE			! get_CWR_Data
+
+
+!********************************
+BEGIN-PROCEDURE Get_Contract_Data
+!********************************
+LET #SPACE_LOC		= 0
+LET #LENGTH		= 0
+LET #SECOND_SPACE_LOC	= 0
+BEGIN-SELECT 
+CT.CONTRACT_BEGIN_DT
+CT.CONTRACT_END_DT
+CT.CONTRCT_EXP_END_DT
+NEE_PROVIDER_ID
+	LET $CONTRACT_BEGIN_DT	= edit(&CT.CONTRACT_BEGIN_DT,'YYYY-MM-DDT00:00:00.000')
+	IF &CT.CONTRACT_END_DT <> ''
+		LET $CONTRACT_END_DT	= edit(&CT.CONTRACT_END_DT,'YYYY-MM-DDT00:00:00.000')
+	ELSE
+		LET $CONTRACT_END_DT	= edit(&CT.CONTRCT_EXP_END_DT,'YYYY-MM-DDT00:00:00.000')
+	END-IF
+	LET $SUPPLIER		= ltrim(rtrim(&NEE_PROVIDER_ID,' '),' ')
+	lookup NEE_PROVIDR_TBL $SUPPLIER $PROVIDER_DETAILS
+	unstring $PROVIDER_DETAILS by ';' into $SUPPLIER_DETAILS $MANAGER_NAME $MANAGER_LOCATION_COUNTRY
+	
+	IF $MANAGER_NAME <> ''
+		LET #LENGTH		= LENGTH($MANAGER_NAME)
+		find ' ' in $MANAGER_NAME 0 #SPACE_LOC
+		IF #SPACE_LOC = -1
+			LET #SPACE_LOC	= #LENGTH
+		END-IF
+		LET $MANAGER_FIRST_NAME	= ltrim(rtrim(substrp($MANAGER_NAME, 1, #SPACE_LOC),' '),' ')
+		LET $MANAGER_LAST_NAME	= ltrim(rtrim(substrp($MANAGER_NAME, #SPACE_LOC + 2, #LENGTH + 2 - #SPACE_LOC),' '),' ')
+		
+		
+		find ' ' in $MANAGER_LAST_NAME 0 #SECOND_SPACE_LOC
+		IF #SECOND_SPACE_LOC <> -1
+			LET #LENGTH		= LENGTH($MANAGER_LAST_NAME)
+			LET $MANAGER_MIDDLE_NAME= ltrim(rtrim(substrp($MANAGER_LAST_NAME, 1, #SECOND_SPACE_LOC),' '),' ')
+			LET $MANAGER_FIRST_NAME	= $MANAGER_FIRST_NAME || ' ' ||$MANAGER_MIDDLE_NAME
+			LET $MANAGER_LAST_NAME	= ltrim(rtrim(substrp($MANAGER_LAST_NAME, #SECOND_SPACE_LOC + 2, #LENGTH + 2 - #SECOND_SPACE_LOC),' '),' ')
+			
+			find ' ' in $MANAGER_LAST_NAME 0 #THIRD_SPACE_LOC
+			IF #THIRD_SPACE_LOC <> -1
+				LET #LENGTH		= LENGTH($MANAGER_LAST_NAME)
+				LET $MANAGER_MIDDLE_NAME= ltrim(rtrim(substrp($MANAGER_LAST_NAME, 1, #THIRD_SPACE_LOC),' '),' ')
+				LET $MANAGER_FIRST_NAME	= $MANAGER_FIRST_NAME || ' ' ||$MANAGER_MIDDLE_NAME
+				LET $MANAGER_LAST_NAME	= ltrim(rtrim(substrp($MANAGER_LAST_NAME, #THIRD_SPACE_LOC + 2, #LENGTH + 2 - #THIRD_SPACE_LOC),' '),' ')
+				
+			END-IF
+			
+		END-IF
+	END-IF
+FROM PS_CONTRACT_DATA CT
+WHERE EMPLID = $EMPLID
+AND CONTRACT_NUM = $CONTRACT_NUM
+
+END-SELECT
+END-PROCEDURE		!	Get_Contract_Data
+
+!******************************************
+BEGIN-PROCEDURE Get_Contract_Probation_Date
+!******************************************
+BEGIN-SELECT
+PROB.PROBATION_DT
+	LET $PROBATION_END_DT	= edit(&PROB.PROBATION_DT,'YYYY-MM-DDT00:00:00.000')
+	
+FROM PS_CNT_PROBATION PROB
+WHERE EMPLID = $EMPLID
+AND CONTRACT_NUM = $CONTRACT_NUM
+AND PROBATION_DT IS NOT NULL
+END-SELECT
+END-PROCEDURE		!	Get_Contract_Probation_Date
+
+!*****************************
+BEGIN-PROCEDURE write_CWR_Data
+!*****************************
+	do xml_init_row(1, 0, 15, 0, 0)					
+	do xml_cell_char('', 0, 0)					
+	do xml_cell_char($EMPLID, 0, 0)					!	Contingent Worker ID
+	do xml_cell_char($SUPPLIER_DETAILS, 0, 0)			!	Contingent Worker Supplier Name
+	do xml_cell_char('', 0, 0)					!	Contingent Worker Contract Reason
+	do xml_cell_datetime($CONTRACT_BEGIN_DT, 0, 4)			!	Contract Begin Date
+	do xml_cell_datetime($CONTRACT_END_DT, 0, 4)			!	Contract End Date
+	do xml_cell_char($CWR_FIRST_NAME, 0, 0)				!	Legal First Name
+	do xml_cell_char($CWR_LAST_NAME,0, 0)				!	Legal Secondary Name
+	do xml_cell_char($CWR_NAME_TITLE, 0, 0)				!	Legal Name Title
+	do xml_cell_char($POSITION_ID,0, 0)				!	Position ID
+	do xml_cell_char($POSITION_TITLE,0, 0)				!	Description of Services provided 
+	do xml_cell_char($JOBCODE,0, 0)					!	Job Code
+	do xml_cell_char($LOCATION,0, 0)				!	Location
+	do xml_cell_char('',0, 0)					!	Work Space
+	do xml_cell_char($TIME_TYPE,0, 0)				!	Time Type
+	do xml_cell_char($FREQ_SERVICES,0, 0)				!	Frequency of Services
+	do xml_cell_char('',0, 0)					!	Pay Rate Value
+	do xml_cell_number(#SCHEDULED_WEEKLY_HRS,'999.9',0,0)		!	Weekly Hours
+	do xml_cell_char('',0, 0)					!	Company Insider Type Name
+	do xml_cell_char($MANAGER_FIRST_NAME,0, 0)			!	Vendor Manager -  First Name
+	do xml_cell_char($MANAGER_LAST_NAME,0, 0)			!	Vendor Manager - Last Name
+	do xml_cell_char($VENDOR_MANAGER_ID,0, 0)			!	Vendor Manager - ID
+	do xml_cell_char($MANAGER_LOCATION_COUNTRY,0, 0)		!	Manager Location Country
+	do xml_cell_char($MANAGER_LOCATION,0, 0)			!	Location ID
+	do xml_cell_char($MANAGER_LOCATION_NAME,0, 0)			!	Location Name
+	do xml_cell_char($COMPANY_ID,0, 0)				!	Company ID
+	do xml_cell_char($COMPANY,0, 0)					!	Company Name
+	do xml_cell_char($DEPT_CODE_ID, 0, 0)				!	Cost Center ID
+	do xml_cell_char($DEPT_NAME, 0, 0)				!	Cost Center Name
+	do xml_cell_char($MANAGER_ID,0, 0)				!	Supervisory Organization - Position Management Org (Managers ID)
+	do xml_cell_char($DEPT_CODE_ID, 0, 0)				!	Dept Code ID
+	do xml_cell_char($DEPT_NAME, 0, 0)				!	Dept Code Name
+	do xml_cell_char('', 0, 0)					!	Division ID
+	do xml_cell_char('', 0, 0)					!	Division Name
+	do xml_cell_char($PAYGROUP_ID, 0, 0)				!	Pay Group ID
+	do xml_cell_char($PAYGROUP_NAME, 0, 0)				!	Pay Group Name
+	do xml_cell_char($PAYGROUP_COUNTRY, 0, 0)			!	Pay Group Country
+	do xml_cell_char($SHIFT_NAME, 0, 0)				!	Work Shift Name 
+	do xml_cell_char($LOCATION_COUNTRY, 0, 0)			!	Country ISO Code
+	do xml_cell_char($REGION, 0, 0)					!	Country Region Name
+	do xml_cell_datetime($PROBATION_START_DT, 0, 4)			!	Probation Start Date
+	do xml_cell_datetime($PROBATION_END_DT, 0, 4)			!	Probation End Date
+	do xml_cell_datetime($END_EMPLOYMENT_DT, 0, 4)			!	End Employment Date
+	do xml_cell_char($EMAIL_ADDR1, 0, 0)				!	Home Email Address
+	
+	do xml_cell_char($INTERNATIONAL_PHN_CODE_HOME, 0, 0)		!	Home Phone International Code
+	do xml_cell_char($AREA_CODE_HOME, 0, 0)				!	Home Phone Area Code
+	do xml_cell_char($PHONE_HOME, 0, 0)				!	Home Phone Number
+	do xml_cell_char($PHONE_COUNTRY_ISO_CODE, 0, 0)			!	Home Phone Country ISO
+	do xml_cell_char('', 0, 0)					!	Currency
+	do xml_cell_char($BIRTHSTATE, 0, 0)				!	Birth Region
+	do xml_cell_char($BIRTHPLACE, 0, 0)				!	Birth City
+	do xml_cell_char($BIRTHCOUNTRY, 0, 0)				!	Birth Country ISO Code
+	do xml_cell_char($GENDER, 0, 0)					!	Gender*
+	do xml_cell_char($DISABILITY_NAME, 0, 0)			!	Disability Name
+	do xml_cell_char('',0, 0)					!	External Payroll ID  / File Number
+	do xml_cell_char($GRADE,0, 0)					!	Compensation Grade for Position
+	do xml_cell_char('',0, 0)					!	Compensation Grade Profile for Position
+	do xml_cell_char($USERNAME,0, 0)				!	User Name
+	do xml_cell_char('',0, 0)					!	Password
+
+
+END-PROCEDURE			! write_CWR_Data
+
+
+!*******************************
+BEGIN-PROCEDURE Write_Header_CWR
+!*******************************
+
+	!INITIALIZATION OF COLUMNS
+	do xml_init_col(1, 1, 120, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 180, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 180, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+	do xml_init_col(7, 1, 130, 0, 0)
+	do xml_init_col(8, 1, 130, 0, 0)
+	do xml_init_col(9, 1, 130, 0, 0)
+	do xml_init_col(10, 1, 150, 0, 0)
+	do xml_init_col(11, 1, 150, 0, 0)
+	do xml_init_col(12, 1, 150, 0, 0)
+	do xml_init_col(13, 1, 150, 0, 0)
+	do xml_init_col(14, 1, 150, 0, 0)
+	do xml_init_col(15, 1, 150, 0, 0)
+	do xml_init_col(16, 1, 150, 0, 0)
+	do xml_init_col(17, 1, 150, 0, 0)
+	do xml_init_col(18, 1, 150, 0, 0)
+	do xml_init_col(19, 1, 150, 0, 0)
+	do xml_init_col(20, 1, 150, 0, 0)
+	do xml_init_col(21, 1, 150, 0, 0)
+	do xml_init_col(22, 1, 180, 0, 0)
+	do xml_init_col(23, 1, 150, 0, 0)
+	do xml_init_col(24, 1, 150, 0, 0)
+	do xml_init_col(25, 1, 150, 0, 0)
+	do xml_init_col(26, 1, 150, 0, 0)
+	do xml_init_col(27, 1, 150, 0, 0)
+	do xml_init_col(28, 1, 150, 0, 0)
+	do xml_init_col(29, 1, 150, 0, 0)
+	do xml_init_col(30, 1, 150, 0, 0)
+	do xml_init_col(31, 1, 150, 0, 0)
+	do xml_init_col(32, 1, 150, 0, 0)
+	do xml_init_col(33, 1, 150, 0, 0)
+	do xml_init_col(34, 1, 150, 0, 0)
+	do xml_init_col(35, 1, 150, 0, 0)
+	do xml_init_col(36, 1, 150, 0, 0)
+	do xml_init_col(37, 1, 150, 0, 0)
+	do xml_init_col(38, 1, 150, 0, 0)
+	do xml_init_col(39, 1, 150, 0, 0)
+	do xml_init_col(40, 1, 150, 0, 0)
+	do xml_init_col(41, 1, 150, 0, 0)
+	do xml_init_col(42, 1, 150, 0, 0)
+	do xml_init_col(43, 1, 150, 0, 0)
+	do xml_init_col(44, 1, 150, 0, 0)
+	do xml_init_col(45, 1, 150, 0, 0)
+	do xml_init_col(46, 1, 150, 0, 0)
+	do xml_init_col(47, 1, 150, 0, 0)
+	do xml_init_col(48, 1, 150, 0, 0)
+	do xml_init_col(49, 1, 150, 0, 0)
+	do xml_init_col(50, 1, 150, 0, 0)
+	do xml_init_col(51, 1, 150, 0, 0)
+	do xml_init_col(52, 1, 150, 0, 0)
+	do xml_init_col(53, 1, 150, 0, 0)
+	do xml_init_col(54, 1, 150, 0, 0)
+	do xml_init_col(55, 1, 150, 0, 0)
+	do xml_init_col(56, 1, 150, 0, 0)
+	do xml_init_col(57, 1, 150, 0, 0)
+	do xml_init_col(58, 1, 150, 0, 0)
+	do xml_init_col(59, 1, 150, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('One row per Worker', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	
+	do xml_cell_char('Contingent Worker', 0, 1)
+	do xml_cell_char('Contingent Worker Details', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('LEGAL NAME', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('POSITION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('SUPERVISORY ORGANISATION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('LOCATION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('ORGANIZATION', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Work Shift Data Section', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('JOB DATE', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('HOME EMAIL', 0, 1)
+	do xml_cell_char('HOME PHONE', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('Salary Currency', 0, 1)
+	do xml_cell_char('Personal Information', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('ID INFORMATION', 0, 1)
+	do xml_cell_char('GRADE', 0, 1)
+	do xml_cell_char('', 0, 1)
+	do xml_cell_char('WORKDAY ACCOUNT', 0, 1)
+	do xml_cell_char('WORKDAY ACCOUNT', 0, 1)
+
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+
+	do xml_cell_char('Contingent Worker ID', 0, 2)
+	do xml_cell_char('Contingent Worker Supplier Name', 0, 2)
+	do xml_cell_char('Contingent Worker Contract Reason', 0, 2)
+	do xml_cell_char('Contract Begin Date', 0, 2)
+	do xml_cell_char('Contract End Date', 0, 2)
+	do xml_cell_char('Legal First Name', 0, 2)
+	do xml_cell_char('Legal Secondary Name', 0, 2)
+	do xml_cell_char('Legal Name Title', 0, 2)
+	do xml_cell_char('Position ID', 0, 2)
+	do xml_cell_char('Description of Services provided ', 0, 2)
+	do xml_cell_char('Job Code', 0, 2)
+	do xml_cell_char('Location', 0, 2)
+	do xml_cell_char('Work Space', 0, 2)
+	do xml_cell_char('Time Type', 0, 2)
+	do xml_cell_char('Frequency of Services', 0, 2)
+	do xml_cell_char('Pay Rate Value', 0, 2)
+	do xml_cell_char('Weekly Hours', 0, 2)
+	do xml_cell_char('Company Insider Type Name', 0, 2)
+	do xml_cell_char('Vendor Manager -  First Name', 0, 2)
+	do xml_cell_char('Vendor Manager - Last Name', 0, 2)
+	do xml_cell_char('Vendor Manager - ID', 0, 2)
+	do xml_cell_char('Manager Location Country', 0, 2)
+	do xml_cell_char('Location ID', 0, 2)
+	do xml_cell_char('Location Name', 0, 2)
+	do xml_cell_char('Company ID', 0, 2)
+	do xml_cell_char('Company Name', 0, 2)
+	do xml_cell_char('Cost Center ID', 0, 2)
+	do xml_cell_char('Cost Center Name', 0, 2)
+	do xml_cell_char('Supervisory Organization - Position Management Org (Managers ID)', 0, 2)
+	do xml_cell_char('Dept Code ID', 0, 2)
+	do xml_cell_char('Dept Code Name', 0, 2)
+	do xml_cell_char('Division ID', 0, 2)
+	do xml_cell_char('Division Name', 0, 2)
+	do xml_cell_char('Pay Group ID', 0, 2)
+	do xml_cell_char('Pay Group Name', 0, 2)
+	do xml_cell_char('Pay Group Country', 0, 2)
+	do xml_cell_char('Work Shift Name ', 0, 2)
+	do xml_cell_char('Country ISO Code', 0, 2)
+	do xml_cell_char('Country Region Name', 0, 2)
+	do xml_cell_char('Probation Start Date', 0, 2)
+	do xml_cell_char('Probation End Date', 0, 2)
+	do xml_cell_char('End Employment Date', 0, 2)
+	do xml_cell_char('Home Email Address', 0, 2)
+	do xml_cell_char('Home Phone International Code', 0, 2)
+	do xml_cell_char('Home Phone Area Code', 0, 2)
+	do xml_cell_char('Home Phone Number', 0, 2)
+	do xml_cell_char('Home Phone Country ISO', 0, 2)
+	do xml_cell_char('Currency', 0, 2)
+	do xml_cell_char('Birth Region', 0, 2)
+	do xml_cell_char('Birth City', 0, 2)
+	do xml_cell_char('Birth Country ISO Code', 0, 2)
+	do xml_cell_char('Gender*', 0, 2)
+	do xml_cell_char('Disability Name', 0, 2)
+	do xml_cell_char('External Payroll ID  / File Number', 0, 2)
+	do xml_cell_char('Compensation Grade for Position', 0, 2)
+	do xml_cell_char('Compensation Grade Profile for Position', 0, 2)
+	do xml_cell_char('User Name', 0, 2)
+	do xml_cell_char('Password', 0, 2)
+
+
+	do xml_init_row(1, 1, 120, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Contingent Worker Identifier for FILLED POSITION.  To be generated centrally - territories do not need to input.', 0, 3)
+	do xml_cell_char('Please provide the name of the company that is providing services', 0, 3)
+	do xml_cell_char('Please confirm if this is the first / initial engagement or re-engagement.', 0, 3)
+	do xml_cell_char('Please provide the date that services began: YYYY-MM-DD', 0, 3)
+	do xml_cell_char('Please provide the date that services are due to end: YYYY-MM-DD', 0, 3)
+	do xml_cell_char('Given First Name of the Contingent Worker (Western/Latin Script)', 0, 3)
+	do xml_cell_char('Given Surname / Family Name of Contingent Worker (Western/Latin Script)', 0, 3)
+	do xml_cell_char('Prefix or Salutation of Contingent Worker (Dr., Mr., Ms., Mrs., etc.)', 0, 3)
+	do xml_cell_char('Must be globally unique.  To be managed centrally - territory input NOT required.', 0, 3)
+	do xml_cell_char('Please provide 1-2 lines summarising the nature of the services performed by the contingent worker', 0, 3)
+	do xml_cell_char('Valid value must also exist in the JOB CATALOG section.  To be managed centrally - territory input NOT required.', 0, 3)
+	do xml_cell_char('Contains the location for the contingent worker', 0, 3)
+	do xml_cell_char('The work space for the contingent worker', 0, 3)
+	do xml_cell_char('"Full Time" or "Part Time"– please enter Full Time for an employee who works for 5 days a week, the usual working hours. For any employee that works less than the normal office hours please enter Part Time.', 0, 3)
+	do xml_cell_char('Please indicate if providing services daily; weekly; monthly (how many days/weeks/months in a given period)', 0, 3)
+	do xml_cell_char('Please provide value of pay rate in local currency (e.g. $300 per hour / £500 per day)', 0, 3)
+	do xml_cell_char('Please indicate the number of hours of services performed by the worker per week', 0, 3)
+	do xml_cell_char('The Company Insider Type for the contingent worker''s primary position.', 0, 3)
+	do xml_cell_char('Please provide the first name of the manager at COMPANY NAME who oversees the consultants services.', 0, 3)
+	do xml_cell_char('Please provide the last name of the manager at COMPANY NAME who oversees the consultants services.', 0, 3)
+	do xml_cell_char('Please provide the Employee ID of the manager at COMPANY NAME who oversees the consultants services.', 0, 3)
+	do xml_cell_char('Location Country of Manager to identify file where Manager Worker data may exist.  To be completed centrally - not for territory input.', 0, 3)
+	do xml_cell_char('Valid value must also exist in the LOCATIONS section.  Not for territory input.', 0, 3)
+	do xml_cell_char('The worker''s office whereby services are deliver to as found in the LOCATION section', 0, 3)
+	do xml_cell_char('Unique Identifier Refer to the COMPANY section', 0, 3)
+	do xml_cell_char('The legal entity to which the services are being delivered, as defined in the Company tab.', 0, 3)
+	do xml_cell_char('The cost centre ID number that services are charged to.', 0, 3)
+	do xml_cell_char('The cost centre description that reflects where services are charged to (e.g. Finance, Accounts Payable)', 0, 3)
+	do xml_cell_char('The Employee ID of the worker''s manager.', 0, 3)
+	do xml_cell_char('Please provide the ID code (if available) that is used to describe the Department Name (may be for financial reporting purposes)', 0, 3)
+	do xml_cell_char('Please provide the name of the department that the employee works in as described by you locally (eg Accounts Payable, Marketing, Infrastructure Services)', 0, 3)
+	do xml_cell_char('This will be defined centrally. Territories are NOT required to complete this.', 0, 3)
+	do xml_cell_char('The division that the services are being delivered to', 0, 3)
+	do xml_cell_char('Unique Identifier for the paygroup in which the employee is located ', 0, 3)
+	do xml_cell_char('Please provide the name of the payroll group that the payroll provider uses to identify a group of workers which includes the assigned worker. Note that there may be as few as one Pay Group per country - this may be the name of the company such as ''Warner Music France'' as described by your Payroll Provider.', 0, 3)
+	do xml_cell_char('3-digit ISO Code', 0, 3)
+	do xml_cell_char('The Work Shift from the contingent worker''s primary position.', 0, 3)
+	do xml_cell_char('The ISO Code associated with the contingent worker''s primary location', 0, 3)
+	do xml_cell_char('Returns the country region for the location', 0, 3)
+	do xml_cell_char('Returns the Probation Start Date from the Probation Period of a position as of the effective date', 0, 3)
+	do xml_cell_char('Returns the Probation End Date from the Probation Period of a position as of the effective date', 0, 3)
+	do xml_cell_char('End Date (for "Fixed-Term" Employee Types only)', 0, 3)
+	do xml_cell_char('At a minimum, one piece of Contact information is required for all workers (Phone, email or Home Address)', 0, 3)
+	do xml_cell_char('The international code associated with the contingent worker''s home phone', 0, 3)
+	do xml_cell_char('At a minimum, one piece of Contact information is required for all workers (Phone, email or Home Address) ', 0, 3)
+	do xml_cell_char('At a minimum, one piece of Contact information is required for all workers (Phone, email or Home Address) ', 0, 3)
+	do xml_cell_char('The Country ISO associated with the contingent worker''s home phone', 0, 3)
+	do xml_cell_char('Input salary payment currency for each employee', 0, 3)
+	do xml_cell_char('The contingent worker''s region of birth', 0, 3)
+	do xml_cell_char('The contingent worker''s city of birth', 0, 3)
+	do xml_cell_char('The contingent worker''s Country ISO Code', 0, 3)
+	do xml_cell_char('see Gender Types', 0, 3)
+	do xml_cell_char('The disability for the contingent worker', 0, 3)
+	do xml_cell_char('Employee''s ID in 3rd Party Payroll System (if different than Employee ID)', 0, 3)
+	do xml_cell_char('Grade Profile to assign to Position', 0, 3)
+	do xml_cell_char('Grade Profile to assign to Position', 0, 3)
+	do xml_cell_char('Network Username (e.g., from Active Directory, etc.)', 0, 3)
+	do xml_cell_char('Temporary Password (e.g., from Active Directory, etc.)', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Contingent Worker ID', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text ', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('List', 0, 10)
+	do xml_cell_char('Number', 0, 10)
+	do xml_cell_char('Number', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ISO', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Date', 0, 10)
+	do xml_cell_char('Date', 0, 10)
+	do xml_cell_char('Date', 0, 10)
+	do xml_cell_char('Email', 0, 10)
+	do xml_cell_char('Number (1)', 0, 10)
+	do xml_cell_char('Number (3)', 0, 10)
+	do xml_cell_char('Phone (7)', 0, 10)
+	do xml_cell_char('ISO', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ISO', 0, 10)
+	do xml_cell_char('List', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE			!	Write_Header_CWR

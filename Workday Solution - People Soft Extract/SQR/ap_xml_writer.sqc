@@ -1,0 +1,985 @@
+!---------------------------------------------------------------------------
+! Used & Modified by : Sumit Chaurasiya
+! Company Name: Appirio Inc.
+! Appirio PeopleSoft data extraction Header script (SQC)
+! Report Date: 30-Sep-2015
+!---------------------------------------------------------------------------
+! Quick rundown on all the procedures you can call...
+!
+! xml_init_environment()
+! xml_init_file(#File, $file, #ProtectStructure, #ProtectWindows)
+! 
+! xml_init_style(#style_id)
+! xml_style_alignment($Horizontal, $Vertical, #ShrinkToFit, $WrapText)
+! xml_style_border($Position, $LineStyle, #Weight)
+! xml_style_font($FontName, #Size, #Bold, #Italics, #Underline, $Color)
+! xml_style_interior($Color, $Pattern)
+! xml_style_numberformat($Format)
+! xml_style_protection(#Protected, #Hideformula)
+! xml_finalize_style()
+! 
+! xml_init_worksheet($worksheet_name, #Protected, #NameRangesAreComing)
+! xml_init_namedRange($name,$worksheetname,$Range,#Hidden)
+! xml_init_col(#column, #autofitwidth, #width, #hidden, #style_id)
+! xml_init_row(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+! 
+! xml_cell_char($character, #column_adjust, #style_id)
+! xml_cell_formula($formula, #column_adjust, #style_id)
+! xml_cell_datetime($datetime, #column_adjust, #style_id)
+! xml_cell_number(#number, $edit, #column_adjust, #style_id)
+! xml_pagebreak()
+! 
+! xml_finalize_worksheet_pagesetup($Orientation, $Center_Options, #Margin_Top, #Margin_Right, #Margin_Bottom, #Margin_Left, $Header, $Footer)
+! xml_finalize_worksheet_print(#FitWidth, #FitHeight, #Scale, #PageBreakZoom)
+! xml_finalize_worksheet_split(#SplitHorizontal, #SplitVertical, #Freeze)
+! xml_finalize_worksheet_allowoptions($Allow_Options)
+! xml_finalize_workbook()
+!
+!---------------------------------------------------------------------------
+begin-procedure xml_init_environment()
+
+   Create-Array Name=XML_Memory_Global Size=99999  !#i = File Number
+      Field=Worksheet:Number=1
+      Field=Column:Number=1
+      Field=Row:Number=1
+      Field=Filename:Char
+      Field=Worksheet1_Name:Char
+
+   Create-Array Name=XML_PageBreak Size=99999
+      Field=Row:Number=1
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_init_file(#File, $file, #ProtectStructure, #ProtectWindows)
+! Open XML file.
+   let #_XML_File_Number = #File
+   open $file as #_XML_File_Number For-Writing Record=10000 Status=#FileStatus
+
+!Write Preliminary Stuff
+   write #_XML_File_Number from '<?xml version="1.0" encoding="iso-8859-1"?>'
+   write #_XML_File_Number from '<?mso-application progid="Excel.Sheet"?>'
+   write #_XML_File_Number from '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"'
+   write #_XML_File_Number from ' xmlns:o="urn:schemas-microsoft-com:office:office"'
+   write #_XML_File_Number from ' xmlns:x="urn:schemas-microsoft-com:office:excel"'
+   write #_XML_File_Number from ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'
+   write #_XML_File_Number from ' xmlns:html="http://www.w3.org/TR/REC-html40">'
+
+!Hardcode in defaults for now
+   write #_XML_File_Number from ' <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">'
+   write #_XML_File_Number from '  <WindowHeight>8700</WindowHeight>'
+   write #_XML_File_Number from '  <WindowWidth>11355</WindowWidth>'
+   write #_XML_File_Number from '  <WindowTopX>120</WindowTopX>'
+   write #_XML_File_Number from '  <WindowTopY>60</WindowTopY>'
+   write #_XML_File_Number from '  <TabRatio>815</TabRatio>'
+
+   if #ProtectStructure = 0
+      write #_XML_File_Number from '  <ProtectStructure>False</ProtectStructure>'
+   else
+      write #_XML_File_Number from '  <ProtectStructure>True</ProtectStructure>'
+   end-if
+   if #ProtectWindows = 0
+      write #_XML_File_Number from '  <ProtectWindows>False</ProtectWindows>'
+   else
+      write #_XML_File_Number from '  <ProtectWindows>True</ProtectWindows>'
+   end-if
+   write #_XML_File_Number from ' </ExcelWorkbook>'
+
+
+   let #_xml_first_style = 1             !Set this to True, until the first <Style> is written
+   let #_XML_Close_Cell = 0
+   let #_XML_Close_Row = 0
+   let #_XML_Close_Table = 0
+   let #_XML_Close_worksheetoptions = 0
+   let #_XML_Close_worksheet = 0
+
+end-procedure
+
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+begin-procedure xml_init_style(#style_id)
+   if #style_id = 0
+      let $xml_style = ' ss:ID="Default" ss:Name="Normal"'
+   else
+      let $xml_style = ' ss:ID="s' || rtrim(ltrim(edit(#style_id, '99999'),' '),' ') || '"'
+   end-if
+
+   if not #_xml_first_style
+      do xml_style_border_end()
+      write #_XML_File_Number from '  </Style>'
+   else
+      write #_XML_File_Number from ' <Styles>'
+      let #_xml_first_style = 0
+   end-if
+
+   write #_XML_File_Number from '  <Style' $xml_style '>'
+   let #_xml_first_style_border = 1
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_alignment($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+   do xml_style_border_end()
+   let $Horizontal = rtrim(ltrim($Horizontal,' '),' ')
+   let $Vertical   = rtrim(ltrim($Vertical  ,' '),' ')
+   let $xml_alignment_hor = ''
+   let $xml_alignment_ver = ''
+   let $xml_alignment_shrink = ''
+   let $xml_alignment_wraptext = ''
+
+   if $Horizontal <> ''
+      let $xml_alignment_hor = ' ss:Horizontal="' || $Horizontal || '"'
+   end-if
+   if $Vertical <> ''
+      let $xml_alignment_ver = ' ss:Vertical="' || $Vertical || '"'
+   end-if
+   if #ShrinkToFit > 0
+      let $xml_alignment_shrink = ' ss:ShrinkToFit="' || rtrim(ltrim(edit(#ShrinkToFit, '99999'),' '),' ') || '"'
+   end-if
+   If #WrapText > 0
+      let $xml_alignment_wraptext = ' ss:WrapText="' || rtrim(ltrim(edit(#WrapText, '99999'),' '),' ') || '"'
+   End-If
+
+   write #_XML_File_Number from '   <Alignment' $xml_alignment_hor $xml_alignment_ver $xml_alignment_shrink $xml_alignment_wraptext '/>'
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_border($Position, $LineStyle, #Weight)
+   let #_xml_style_borders_already_ended = 0
+   if #_xml_first_style_border
+      write #_XML_File_Number from '   <Borders>'
+      let #_xml_first_style_border = 0
+   end-if
+
+   let $xml_style_border_position = ' ss:Position="'  || $Position || '"'
+   let $xml_style_border_linesty  = ' ss:LineStyle="' || $LineStyle || '"'
+   let $xml_style_border_weight   = ' ss:Weight="'    || rtrim(ltrim(edit(#weight, '99999'),' '),' ') || '"'
+
+   write #_XML_File_Number from '    <Border' $xml_style_border_position $xml_style_border_linesty $xml_style_border_weight '/>'
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_border_end()
+   if not #_xml_first_style_border and not #_xml_style_borders_already_ended
+      write #_XML_File_Number from '   </Borders>'
+      let #_xml_style_borders_already_ended = 1
+   end-if
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_font($FontName, #Size, #Bold, #Italics, #Underline, $Color)
+!Procedure changed to include FontName for version 1.01
+   do xml_style_border_end()
+   let $xml_style_font_size = ''
+   let $xml_style_font_bold_ = ''
+   let $xml_style_font_italic = ''
+   let $xml_style_font_color = ''
+
+   evaluate $FontName
+      when = 'Arial'
+      when = 'Arial Black'
+      when = 'Arial Narrow'
+         let $Family = 'Swiss'
+      when = 'Times New Roman'
+         let $Family = 'Roman'
+      when = 'Courier'
+      when = 'Courier New'
+         let $Family = 'Modern'
+      when = 'Monotype Corsiva'
+      when = 'Script'
+         let $Family = 'Script'
+      when-other
+         let $Family = 'Swiss'
+   end-evaluate
+
+   let $xml_style_font_name = ' ss:FontName="' || $FontName || '"'
+   let $xml_style_font_family = ' x:Family="' || $Family || '"'
+   if #Size > 0
+      let $xml_style_font_size   = ' ss:Size="' || rtrim(ltrim(edit(#Size, '99999.99'),' '),' ') || '"'
+   end-if
+
+   if #Bold = 1
+      let $xml_style_font_bold = ' ss:Bold="1"'
+   else
+      let $xml_style_font_bold = ' ss:Bold="0"'
+   End-If
+   if #Italics = 1
+      let $xml_style_font_italic = ' ss:Italic="1"'
+   else
+      let $xml_style_font_italic = ' ss:Italic="0"'
+   End-If
+
+   if #Underline = 1
+      let $xml_style_font_underline = ' ss:Underline="Single"'
+   else
+      let $xml_style_font_underline = ' ss:Underline="None"'
+   End-If
+
+   if $Color <> ''
+      let $xml_style_font_color = ' ss:Color="' || $Color || '"'
+   End-If
+
+   write #_XML_File_Number from '   <Font' $xml_style_font_name $xml_style_font_family $xml_style_font_size $xml_style_font_bold $xml_style_font_italic $xml_style_font_underline $xml_style_font_color '/>'
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_interior($Color, $Pattern)
+   do xml_style_border_end()
+   let $xml_style_interior_color   = ' ss:Color="' || $Color || '"'
+   let $xml_style_interior_pattern = ' ss:Pattern="' || $Pattern || '"'
+
+   write #_XML_File_Number from '   <Interior' $xml_style_interior_color $xml_style_interior_pattern '/>'
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_numberformat($Format)
+   do xml_style_border_end()
+   let $xml_style_numberformat_format = ' ss:Format="' || $Format || '"'
+
+   write #_XML_File_Number from '   <NumberFormat' $xml_style_numberformat_format '/>'
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_style_protection(#Protected, #Hideformula)
+   do xml_style_border_end()
+   let $xml_style_protection_hideformula = ''
+
+   if #Hideformula > 0
+      let $xml_style_protection_hideformula = ' x:HideFormula="1"'
+   end-if
+   let $xml_style_protection_protected = ' ss:Protected="' || rtrim(ltrim(edit(#Protected, '99999'),' '),' ') || '"'
+
+   write #_XML_File_Number from '   <Protection' $xml_style_protection_protected $xml_style_protection_hideformula '/>'
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_style()
+   if not #_xml_first_style
+      do xml_style_border_end()  !Added as a bug fix for 1.08
+      write #_XML_File_Number from '  </Style>'
+      write #_XML_File_Number from ' </Styles>'
+   end-if
+end-procedure
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+begin-procedure xml_init_worksheet($worksheet_name, #Protected, #NameRangesAreComing)
+   do xml_closing_worksheet()
+   let #_xml_pagebreak_entry = 0       !Hold which entry to use next for the PageBreak Array
+   let #_xml_first_row = 1             !Set this to True, until the first <Row> is written
+   let #_xml_current_row = 0           !Set Current Row to a 0.  We'll increase this everytime we do a <ROW>
+   let #_xml_current_col = 0           !Set Current Col to a 0.  We'll increase this everytime we do a <CELL>
+   let $xml_worksheet_protected = ''
+   let $_xml_Remember_Auto_Filter_Range = ''
+   let $_xml_Filter_Name = ''
+
+   clear-array name= XML_PageBreak     !Clear the XML PageBreak Array
+
+   let $xml_worksheet_name = ' ss:Name="' || $worksheet_name || '"'
+   if #Protected > 0
+      let $xml_worksheet_protected = ' ss:Protected="1"'
+   end-if
+   let #_XML_Close_worksheet = 1
+   write #_XML_File_Number from ' <Worksheet' $xml_worksheet_name $xml_worksheet_protected '>'
+
+   if not #NameRangesAreComing
+      !We state the Table as being large, though we may not write to all the rows/columns
+      let #_XML_Close_Table = 1
+      !write #_XML_File_Number from '  <Table ss:ExpandedColumnCount="256" ss:ExpandedRowCount="64000" x:FullColumns="1" x:FullRows="1">'
+      write #_XML_File_Number from '  <Table ss:ExpandedColumnCount="300" ss:ExpandedRowCount="200000" x:FullColumns="1" x:FullRows="1">'
+   end-if
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_init_namedRange($name,$worksheetname,$Range,#Hidden)
+   write #_XML_File_Number from '  <Names>'
+   let $_xml_exclamation = chr(33)
+   let $xml_Name     = ' ss:Name="' || $name || '"'
+   let $xml_RefersTo = ' ss:RefersTo="=''' || $worksheetname || '''' || $_xml_exclamation || $Range || '"'
+   let $xml_Hidden   = ' ss:Hidden="' || rtrim(ltrim(edit(#Hidden,'9'),' '),' ') || '"'
+   write #_XML_File_Number from '   <NamedRange' $xml_Name $xml_RefersTo $xml_Hidden '/>'
+
+   if $name = 'AutoFilter'
+      let $_xml_Remember_Auto_Filter_Range = $Range
+   end-if
+
+   write #_XML_File_Number from '  </Names>'
+
+   let #_XML_Close_Table = 1
+   write #_XML_File_Number from '  <Table ss:ExpandedColumnCount="256" ss:ExpandedRowCount="64000" x:FullColumns="1" x:FullRows="1">'
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_init_col(#column, #autofitwidth, #width, #hidden, #style_id)
+   let $xml_col_index = ''
+   let $xml_autofit = ''
+   let $xml_width = ''
+   let $xml_hidden = ''
+   let $xml_style = ''
+
+   if #column > 0
+      let $xml_col_index = ' ss:Index="' || rtrim(ltrim(edit(#column,'9999999'),' '),' ') || '"'
+   end-if
+   if #autofitwidth > 0
+      let $xml_autofit = ' ss:AutoFitWidth="1"'
+   end-if
+   if #width > 0
+      let $xml_width = ' ss:Width="' || rtrim(ltrim(edit(#width,'9999999.99'),' '),' ') || '"'
+   end-if
+   if #hidden > 0
+      let $xml_hidden = ' ss:Hidden="1"'
+   end-if
+   if #style_id > 0
+      let $xml_style = ' ss:StyleID="s' || rtrim(ltrim(edit(#style_id, '99999'),' '),' ') || '"'
+   end-if
+
+   write #_XML_File_Number from '   <Column' $xml_col_index $xml_autofit $xml_width $xml_hidden $xml_style '/>'
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_init_row(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+   do xml_closing_row()
+
+   let $xml_row_index = ''
+   let $xml_autofit = ''
+   let $xml_height = ''
+   let $xml_hidden = ''
+   let $xml_style = ''
+
+!If the Row needs adjusting (or this is our first row...
+!   Check to see if this we've ever written a <Row> before
+!      if so, write the </Row>
+!   Now write the new <Row>
+!   Set the #_xml_first_row to false
+   if #row_adjust or #_xml_first_row
+      add 1 to #_xml_current_row
+      if #row_adjust > 1
+         let #_xml_current_row = #_xml_current_row + #row_adjust - 1
+         let $xml_row_index = ' ss:Index="' || rtrim(ltrim(edit(#_xml_current_row,'9999999'),' '),' ') || '"'
+      end-if
+      if #autofitheight > 0
+         let $xml_autofit = ' ss:AutoFitHeight="1"'
+      end-if
+      if #height > 0
+         let $xml_height = ' ss:Height="' || rtrim(ltrim(edit(#height,'9999999.99'),' '),' ') || '"'
+      end-if
+      if #hidden > 0
+         let $xml_hidden = ' ss:Hidden="1"'
+      end-if
+      if #style_id > 0
+         let $xml_style = ' ss:StyleID="s' || rtrim(ltrim(edit(#style_id, '99999'),' '),' ') || '"'
+      end-if
+
+      let #_XML_Close_Row = 1
+      write #_XML_File_Number from '   <Row' $xml_row_index $xml_autofit $xml_height $xml_hidden $xml_style '>'
+      let #_xml_current_col = 0
+      let #_xml_first_row = 0
+   end-if
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_cell_char($character, #column_adjust, #style_id)
+   do xml_closing_cell()
+   do xml_cell_premovement(#column_adjust, #style_id, 0, $xml_cell_pre_attr, $xml_cell_post_attr)
+
+   do xml_character_cleaner($character, $character)
+
+   !Preformat $xml_data
+   !   No $Data string if $character is ''
+   let $first_char = substr($character,1,1)                       !Added May 2, 2005 for Version 1.03
+   evaluate $first_char                                           !Added May 2, 2005 for Version 1.03
+      when = '0'                                                  !Added May 2, 2005 for Version 1.03
+      when = '1'                                                  !Added May 2, 2005 for Version 1.03
+      when = '2'                                                  !Added May 2, 2005 for Version 1.03
+      when = '3'                                                  !Added May 2, 2005 for Version 1.03
+      when = '4'                                                  !Added May 2, 2005 for Version 1.03
+      when = '5'                                                  !Added May 2, 2005 for Version 1.03
+      when = '6'                                                  !Added May 2, 2005 for Version 1.03
+      when = '7'                                                  !Added May 2, 2005 for Version 1.03
+      when = '8'                                                  !Added May 2, 2005 for Version 1.03
+      when = '9'                                                  !Added May 2, 2005 for Version 1.03
+      when = '-'                                                  !Added May 2, 2005 for Version 1.03
+         let $ticked = ' x:Ticked="1"'                            !Added May 2, 2005 for Version 1.03
+      when-other                                                  !Added May 2, 2005 for Version 1.03
+         let $ticked = ''                                         !Added May 2, 2005 for Version 1.03
+   end-evaluate                                                   !Added May 2, 2005 for Version 1.03
+   if $character <> ''
+      let $xml_data = '<Data ss:Type="String"' || $ticked || '>' || $character || '</Data>'
+   else
+      let $xml_data = ''
+   end-if
+
+   !Write the Cell's string
+   let #_XML_Close_Cell = 1
+   write #_XML_File_Number from '    <Cell' $xml_cell_pre_attr $xml_style '>' $xml_data $xml_cell_post_attr
+   add 1 to #_xml_current_col
+
+end-procedure
+
+!---------------------------------------------------------------------------
+!Below function xml_cell_href is Added by Sumit Chaurasiya on 04/15/2015 to make hyperlink in User Guide Index.
+begin-procedure xml_cell_href($character, #column_adjust, #style_id)
+   do xml_closing_cell()
+   do xml_cell_premovement(#column_adjust, #style_id, 0, $xml_cell_pre_attr, $xml_cell_post_attr)
+
+   do xml_character_cleaner($character, $character)
+
+   !Preformat $xml_data
+   !   No $Data string if $character is ''
+   let $first_char = substr($character,1,1)
+   evaluate $first_char
+      when = '0'
+      when = '1'
+      when = '2'
+      when = '3'
+      when = '4'
+      when = '5'
+      when = '6'
+      when = '7'
+      when = '8'
+      when = '9'
+      when = '-'
+         let $ticked = ' x:Ticked="1"'     
+      when-other       
+         let $ticked = ''                  
+   end-evaluate        
+   if $character <> ''
+      let $xml_data = '<Data ss:Type="String"' || $ticked || '>' || $character || '</Data>'
+   else
+      let $xml_data = ''
+   end-if
+   let $Ex	= chr(33)		! Exclamation Mark
+   let $sq	= chr(39)		! Single Quotation
+   let $href	= ' ss:HRef="#'|| $sq || $character || $sq || $Ex || 'A1'||'" '
+   
+   !Write the Cell's string
+   let #_XML_Close_Cell = 1
+
+   write #_XML_File_Number from '    <Cell' $xml_cell_pre_attr $xml_style $href '>' $xml_data $xml_cell_post_attr
+   add 1 to #_xml_current_col
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_cell_comment($Author,$Font,$Comment)
+   let $Author = rtrim(ltrim($Author,' '),' ')
+   Unstring $Font by '^' into $F1 $F2 $F3 $F4
+
+   write #_XML_File_Number from '     <Comment ss:Author="' $Author '"><ss:Data'
+   write #_XML_File_Number from '       xmlns="http://www.w3.org/TR/REC-html40"><Font'
+   write #_XML_File_Number from '       html:Face="' $F1 '" x:Family="' $F2 '" html:Size="' $F3 '"'
+   write #_XML_File_Number from '        html:Color="' $F4 '">' $Comment '</Font></ss:Data></Comment>'
+
+!    <Cell><Comment ss:Author="David Vandiver"><ss:Data
+!       xmlns="http://www.w3.org/TR/REC-html40"><B><Font html:Face="Tahoma"
+!         html:Size="8" html:Color="#000000">David Vandiver:</Font></B><Font
+!        html:Face="Tahoma" html:Size="8" html:Color="#000000">&#10;Simple.</Font></ss:Data></Comment></Cell>
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_cell_formula($formula, #column_adjust, #style_id)
+   do xml_closing_cell()
+   do xml_cell_premovement(#column_adjust, #style_id, 0, $xml_cell_pre_attr, $xml_cell_post_attr)
+
+   let $xml_formula = ' ss:Formula="' || $formula || '"'
+   let $xml_data = ' <Data ss:Type="Number"></Data>'
+
+   let #_XML_Close_Cell = 1
+   write #_XML_File_Number from '    <Cell' $xml_cell_pre_attr $xml_style $xml_formula '>' $xml_data $xml_cell_post_attr
+   add 1 to #_xml_current_col
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_cell_datetime($datetime, #column_adjust, #style_id)
+   do xml_closing_cell()
+   do xml_cell_premovement(#column_adjust, #style_id, 0, $xml_cell_pre_attr, $xml_cell_post_attr)
+
+   let $datetime = ltrim(rtrim($datetime,' '),' ')
+   !Preformat $xml_data
+   !   No $Data string if $character is ''
+   if $datetime <> ''
+      let $xml_data = '<Data ss:Type="DateTime">' || $datetime || '</Data>'
+   else
+      let $xml_data = ''
+   end-if
+
+   !Write the Cell's DateTime
+   let #_XML_Close_Cell = 1
+   write #_XML_File_Number from '    <Cell' $xml_cell_pre_attr $xml_style '>' $xml_data $xml_cell_post_attr
+   add 1 to #_xml_current_col
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_cell_number(#number, $edit, #column_adjust, #style_id)
+   do xml_closing_cell()
+   do xml_cell_premovement(#column_adjust, #style_id, 0, $xml_cell_pre_attr, $xml_cell_post_attr)
+
+!Write the Cell's Number
+
+   let $xml_data = '<Data ss:Type="Number">' || rtrim(ltrim(edit(#Number, $edit),' '),' ') || '</Data>'
+
+   !Write the Cell's Number
+   let #_XML_Close_Cell = 1
+   write #_XML_File_Number from '    <Cell' $xml_cell_pre_attr $xml_style '>' $xml_data $xml_cell_post_attr
+   add 1 to #_xml_current_col
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_pagebreak()
+   put #_xml_current_row into XML_PageBreak(#_xml_pagebreak_entry) Row
+   add 1 to #_xml_pagebreak_entry
+end-procedure
+
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_worksheet_pagesetup($Orientation, $Center_Options, #Margin_Top, #Margin_Right, #Margin_Bottom, #Margin_Left, $Header, $Footer)
+   do xml_closing_table()
+
+   if substr($Orientation, 1, 1) = 'L' or substr($Orientation, 1, 1) = 'l'
+      let $XML_Orientation = ' x:Orientation="Landscape"'
+   else
+      let $XML_Orientation = ''
+   end-if
+
+   let #loc = 0
+   find 'H' in $Center_Options 0 #loc
+   if #loc <> -1
+      let $XML_CenterHor = ' x:CenterHorizontal="1"'
+   else
+      let $XML_CenterHor = ''
+   end-if
+   let #loc = 0
+   find 'V' in $Center_Options 0 #loc
+   if #loc <> -1
+      let $XML_CenterVer = ' x:CenterVertical="1"'
+   else
+      let $XML_CenterVer = ''
+   end-if
+
+   let $M1 = rtrim(ltrim(rtrim(edit(#Margin_Bottom,'99.9999'), ' '), ' '), '0')
+   let $M2 = rtrim(ltrim(rtrim(edit(#Margin_Left  ,'99.9999'), ' '), ' '), '0')
+   let $M3 = rtrim(ltrim(rtrim(edit(#Margin_Right ,'99.9999'), ' '), ' '), '0')
+   let $M4 = rtrim(ltrim(rtrim(edit(#Margin_Top   ,'99.9999'), ' '), ' '), '0')
+
+   write #_XML_File_Number from '   <PageSetup>'
+   write #_XML_File_Number from '    <Layout' $XML_Orientation $XML_CenterHor $XML_CenterVer '/>'
+   If $Header <> ''
+      write #_XML_File_Number from '    <Header' $Header '/>'
+   End-If
+   If $Footer <> ''
+      write #_XML_File_Number from '    <Footer' $Footer '/>'
+   End-If
+   write #_XML_File_Number from '    <PageMargins x:Bottom="' $M1 '" x:Left="' $M2 '" x:Right="' $M3 '" x:Top="' $M4 '"/>'
+   write #_XML_File_Number from '   </PageSetup>'
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_worksheet_print(#FitWidth, #FitHeight, #Scale, #PageBreakZoom)
+   do xml_closing_table()
+
+   if #Scale > 0
+      let $XML_Scale = ltrim(rtrim(edit(#scale, '9999'), ' '), ' ')
+   else
+      let $XML_Scale = '100'
+   end-if   
+
+   if #PageBreakZoom > 0
+      let $XML_PBZoom = ltrim(rtrim(edit(#PageBreakZoom, '9999'), ' '), ' ')
+   else
+      let $XML_PBZoom = '100'
+   end-if   
+
+   If #FitWidth > 0 Or #FitHeight > 0 
+      If #Scale = 0
+         write #_XML_File_Number from '   <FitToPage/>'
+      End-If
+   End-If
+
+   write #_XML_File_Number from '   <Print>'
+   if #FitWidth > 0
+      let $FitWidth = ltrim(rtrim(edit(#FitWidth, '999999'), ' '), ' ')
+      write #_XML_File_Number from '    <FitWidth>' $FitWidth '</FitWidth>'
+   end-if
+   if #FitHeight > 0
+      let $FitHeight = ltrim(rtrim(edit(#FitHeight, '999999'), ' '), ' ')
+      write #_XML_File_Number from '    <FitHeight>' $FitHeight '</FitHeight>'
+   end-if
+   write #_XML_File_Number from '    <ValidPrinterInfo/>'
+   write #_XML_File_Number from '    <Scale>' $XML_Scale '</Scale>'
+   write #_XML_File_Number from '    <HorizontalResolution>600</HorizontalResolution>'
+   write #_XML_File_Number from '    <VerticalResolution>600</VerticalResolution>'
+   write #_XML_File_Number from '   </Print>'
+   write #_XML_File_Number from '   <PageBreakZoom>' $XML_PBZoom '</PageBreakZoom>'
+   write #_XML_File_Number from '   <Zoom>' $XML_PBZoom '</Zoom>'
+   write #_XML_File_Number from '   <Selected/>'
+
+!   if #ProtectObjects > 0
+!      write #_XML_File_Number from '   <ProtectObjects>False</ProtectObjects>'
+!   else
+!      write #_XML_File_Number from '   <ProtectObjects>True</ProtectObjects>'
+!   end-if
+!   if #ProtectScenarios > 0
+!      write #_XML_File_Number from '   <ProtectScenarios>False</ProtectScenarios>'
+!   else
+!      write #_XML_File_Number from '   <ProtectScenarios>True</ProtectScenarios>'
+!   end-if
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_worksheet_split(#SplitHorizontal, #SplitVertical, #Freeze)
+   do xml_closing_table()
+
+   if #Freeze
+      write #_XML_File_Number from '   <FreezePanes/>'
+   end-if
+
+   if #SplitHorizontal > 0
+      let $SplitHorizontalData     = ltrim(rtrim(edit(#SplitHorizontal, '9999999999'), ' '),' ')
+      let $TopRowBottomPaneData    = ltrim(rtrim(edit(#SplitHorizontal, '9999999999'), ' '),' ')
+      write #_XML_File_Number from '   <SplitHorizontal>' $SplitHorizontalData '</SplitHorizontal>'
+      write #_XML_File_Number from '   <TopRowBottomPane>' $TopRowBottomPaneData '</TopRowBottomPane>'
+   end-if
+
+   if #SplitVertical > 0
+      let $SplitVerticalData       = ltrim(rtrim(edit(#SplitVertical, '9999999999'), ' '),' ')
+      let $LeftColumnRightPaneData = ltrim(rtrim(edit(#SplitVertical, '9999999999'), ' '),' ')
+      write #_XML_File_Number from '   <SplitVertical>' $SplitVerticalData '</SplitVertical>'
+      write #_XML_File_Number from '   <LeftColumnRightPane>' $LeftColumnRightPaneData '</LeftColumnRightPane>'
+   end-if
+
+   if #SplitHorizontal or #SplitVertical
+      if #SplitHorizontal and #SplitVertical
+         write #_XML_File_Number from '   <ActivePane>0</ActivePane>'
+      else
+         if #SplitVertical
+            write #_XML_File_Number from '   <ActivePane>1</ActivePane>'
+         else
+            write #_XML_File_Number from '   <ActivePane>2</ActivePane>'
+         end-if      
+      end-if      
+   else
+      write #_XML_File_Number from '   <ActivePane>3</ActivePane>'
+   end-if      
+
+   if #SplitHorizontal or #SplitVertical
+      write #_XML_File_Number from '   <Panes>'
+      write #_XML_File_Number from '    <Pane>'
+      write #_XML_File_Number from '     <Number>3</Number>'
+      write #_XML_File_Number from '    </Pane>'
+   end-if      
+   if #SplitVertical
+      write #_XML_File_Number from '    <Pane>'
+      write #_XML_File_Number from '     <Number>1</Number>'
+      write #_XML_File_Number from '    </Pane>'
+   end-if      
+   if #SplitHorizontal
+      write #_XML_File_Number from '    <Pane>'
+      write #_XML_File_Number from '     <Number>2</Number>'
+      write #_XML_File_Number from '    </Pane>'
+   end-if      
+   if #SplitHorizontal and #SplitVertical
+      write #_XML_File_Number from '    <Pane>'
+      write #_XML_File_Number from '     <Number>0</Number>'
+      write #_XML_File_Number from '    </Pane>'
+   end-if      
+   if #SplitHorizontal or #SplitVertical
+      write #_XML_File_Number from '   </Panes>'
+   end-if
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_worksheet_allowoptions($Allow_Options)
+   do xml_closing_table()
+
+   let $Allow_Options = rtrim(ltrim($Allow_Options,' '),' ')
+   if $Allow_Options <> ''
+      let #start = 1
+      let #location = 0
+      while #location <> -1
+         let #start = #location + 1
+         Find '^' In $Allow_Options #start #location
+         if #location = -1
+            let #size = (length($Allow_Options) - #start) + 1
+         else
+            let #size = (#location - #start) + 1
+         end-if
+         let $Data = ltrim(rtrim(substr($Allow_Options,#start,#size),'^'),'^')
+         write #_XML_File_Number from '   <x:' $Data '/>'
+      end-while
+   end-if
+
+   do xml_finalize_pagebreak()
+   do xml_finalize_autofilter()
+   
+end-procedure
+
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_pagebreak()
+!Developer doesn't need to call this function.
+!Procedure changed to reset #_xml_pagebreak_entry back to zero near the end
+!   Change was for version 1.02
+   do xml_closing_worksheetoptions()
+   !PageBreak Logic
+   if #_xml_pagebreak_entry > 0
+      write #_XML_File_Number from '  <PageBreaks xmlns="urn:schemas-microsoft-com:office:excel">'
+      write #_XML_File_Number from '   <RowBreaks>'
+      let #i = 0
+      while #i < #_xml_pagebreak_entry
+         get #k from XML_PageBreak(#i) Row
+         let $k = rtrim(ltrim(edit(#k, '9999999'),' '),' ')
+         write #_XML_File_Number from '    <RowBreak><Row>' $k '</Row></RowBreak>'
+         add 1 to #i
+      end-while
+      write #_XML_File_Number from '   </RowBreaks>'
+      write #_XML_File_Number from '  </PageBreaks>'
+      let #_xml_pagebreak_entry = 0             !Added April 28, 2005 for Version 1.02
+   end-if
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_validationlist($Range,$Type,$List,$InputTitle,$InputMessage)
+   do xml_closing_worksheetoptions()
+
+   write #_XML_File_Number from '  <DataValidation xmlns="urn:schemas-microsoft-com:office:excel">'
+   write #_XML_File_Number from '   <Range>' $Range '</Range>'
+   write #_XML_File_Number from '   <Type>' $Type '</Type>'
+   write #_XML_File_Number from '   <CellRangeList/>'
+   write #_XML_File_Number from '   <Value>&quot;' $List '&quot;</Value>'
+   if $InputTitle <> ''
+      write #_XML_File_Number from '   <InputTitle>' $InputTitle '</InputTitle>'
+   end-if
+   if $InputMessage <> ''
+      write #_XML_File_Number from '   <InputMessage>' $InputMessage '</InputMessage>'
+   end-if
+
+
+   write #_XML_File_Number from '  </DataValidation>'
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_autofilter()
+!Developer doesn't need to call this function.
+   do xml_closing_worksheetoptions()
+   do xml_finalize_pagebreak()
+   if $_xml_Remember_Auto_Filter_Range <> ''
+      write #_XML_File_Number from '  <AutoFilter x:Range="' $_xml_Remember_Auto_Filter_Range '"'
+      write #_XML_File_Number from '   xmlns="urn:schemas-microsoft-com:office:excel">'
+      write #_XML_File_Number from '  </AutoFilter>'
+      let $_xml_Remember_Auto_Filter_Range = ''  
+   end-if
+
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_finalize_workbook()
+   do xml_closing_worksheet()
+   write #_XML_File_Number from '</Workbook>'
+   close #_XML_File_Number
+end-procedure
+
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
+begin-procedure xml_character_cleaner($character, :$character)
+!Search for "&" in the character, and replace with the appropriate syntax
+
+   let #location1 = 0
+   let #location2 = 0
+   let #location3 = 0
+   let #location4 = 0
+   find '&' In $character 0 #location1
+   find '"' In $character 0 #location2
+   find '<' In $character 0 #location3
+   find '>' In $character 0 #location4
+
+   if (#location1 <> -1 or #location2 <> -1 or #location3 <> -1 or #location4 <> -1) and $character <> ''
+      let #i = 1
+      let #Descr_Length = length($character) + 1
+      let $new_string = ''
+      while #i < #Descr_Length
+         let $I = substr($character, #i, 1)
+         evaluate $I
+            when = '&'
+               let $new_string = $new_string || '&amp;'
+            when = '"'
+               let $new_string = $new_string || '&quot;'
+            when = '<'
+               let $new_string = $new_string || '&lt;'
+            when = '>'
+               let $new_string = $new_string || '&gt;'
+            when-other
+               let $new_string = $new_string || $I
+         end-evaluate
+         add 1 to #i
+      end-while
+      let $character = $new_string
+   end-if
+
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_closing_cell()
+   if #_XML_Close_cell
+      write #_XML_File_Number from '    </Cell>'
+      let #_XML_Close_Cell = 0
+   end-if
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_closing_row()
+   do xml_closing_cell()
+   if #_XML_Close_Row
+      write #_XML_File_Number from '   </Row>'
+      let #_XML_Close_Row = 0
+   end-if
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_closing_table()
+   do xml_closing_row()
+   if #_XML_Close_Table
+      write #_XML_File_Number from '  </Table>'
+      let #_XML_Close_Table = 0
+
+      let #_XML_Close_worksheetoptions = 1
+      write #_XML_File_Number from '  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">'
+   end-if
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_closing_worksheetoptions()
+   if #_XML_Close_worksheetoptions
+      write #_XML_File_Number from '  </WorksheetOptions>'
+      let #_XML_Close_worksheetoptions = 0
+   end-if
+end-procedure
+!---------------------------------------------------------------------------
+begin-procedure xml_closing_worksheet()
+   do xml_closing_table()                     !Added for Version 1.00
+   do xml_closing_worksheetoptions()          !Added for Version 1.00
+   if #_XML_Close_worksheet
+      write #_XML_File_Number from ' </Worksheet>'
+      let #_XML_Close_worksheet = 0
+   end-if
+end-procedure
+
+!---------------------------------------------------------------------------
+begin-procedure xml_cell_premovement(#column_adjust, #style_id, #mergeacross, :$xml_cell_pre_attr, :$xml_cell_post_attr)
+
+   let $xml_cell_pre_attr = ''
+   let $xml_cell_post_attr = ''
+   
+   let #column_relative = trunc(#column_adjust,0)
+   let #column_absolute = (#column_adjust - #column_relative) * 100
+
+   if #column_absolute > 0
+      if #column_absolute > #_xml_current_col
+         let $xml_cell_pre_attr = ' ss:Index="' || rtrim(ltrim(edit(#column_absolute,'9999'),' '),' ') || '"'
+         let #_xml_current_col = #column_absolute
+      else
+         let $xml_cell_pre_attr = ''
+      end-if
+   else
+      if #column_relative > 0
+         let #i = 0
+         while #i < #column_relative
+            write #_XML_File_Number from '    <Cell></Cell>'
+            add 1 to #_xml_current_col
+            add 1 to #i
+         end-while
+      end-if
+   end-if
+
+   if #_xml_mergeacross > 0
+      let $xml_cell_pre_attr = ' ss:MergeAcross="' || rtrim(ltrim(edit(#_xml_mergeacross,'9999'),' '),' ') || '"' || $xml_cell_pre_attr
+      let #_xml_mergeacross = 0
+   end-if
+
+   if #style_id > 0
+      let $xml_cell_pre_attr = $xml_cell_pre_attr || ' ss:StyleID="s' || rtrim(ltrim(edit(#style_id, '99999'),' '),' ') || '"'
+   end-if
+
+!@@@@@@@@@@@@@@@@
+!Post Attributes
+!@@@@@@@@@@@@@@@@
+
+   if $_xml_Filter_Name <> ''
+      let $xml_cell_post_attr = '<NamedCell ss:Name="' || $_xml_Filter_Name || '"/>'
+   end-if
+   
+end-procedure
+
+!Added by Sumit Chaurasiya on 12/09/2015 to make output file password protected.
+begin-procedure zip_and_protect_file
+
+!below password will be used to open output file
+
+BEGIN-SELECT
+PASSWORD2
+	Let $password = &PASSWORD2
+FROM PS_AP_SQR_SYSTEM
+END-SELECT
+
+	!Below code will zip output file with password
+	Let $GenerateZipFile = rtrim($GenerateNewFile,'.xls')
+	Let $zip_cmd1 = ''
+	!Let $zip_cmd1	='zip -j -P '|| $password || ' "' || $GenerateZipFile||'" "'||$GenerateNewFile||'"'
+
+	!Below evaluate expression will zip output file according to Platform used in target system
+	EVALUATE $sqr-platform
+		WHEN = 'UNIX'
+		Let $zip_cmd1	='zip -j -P '|| $password || ' "' || $GenerateZipFile||'" "'||$GenerateNewFile||'"'
+		BREAK
+		
+		WHEN-OTHER
+		!Added for zipping using 7zip
+		Let $zip_cmd1	='7za a'|| ' "' || $GenerateZipFile||'.zip'||'" "'||$GenerateNewFile||'" '|| '-p'|| $password		
+		BREAK
+	END-EVALUATE
+
+	Call System using $zip_cmd1 #status1
+
+	!Checking For Zipped File Status
+	if #status1 != 0
+		  show 'XLS File couldn' '''' 't be zipped successfully'
+	end-if
+
+	let $zip_cmd2	='rm "'||$GenerateNewFile||'"'
+	Call System using $zip_cmd2 #status2
+	
+	!Checking For File deletion Status
+	if #status2 != 0
+		show 'XLS File couldn' '''' 't delete successfully'
+	end-if
+
+end-procedure
+
+
+!Added by Sumit Chaurasiya on 12/11/2015 to access Configuration page.
+BEGIN-PROCEDURE COUNTRY_MAPS
+LET $COUNTRY_ISD_CODE	= ''
+LET $CURRENCY		= ''
+LET $COUNTRY_NAME	= ''
+BEGIN-SELECT
+DESCR50
+COUNTRY_2CHAR
+CURRENCY_CD
+COUNTRY_CODE
+	LET $COUNTRY_NAME	= &DESCR50
+	LET $CURRENCY		= &CURRENCY_CD
+	LET $COUNTRY_ISD_CODE	= &COUNTRY_CODE
+FROM PS_AP_COUNTRY_MAPS MAPS
+WHERE COUNTRY = $COUNTRY
+END-SELECT
+
+END-PROCEDURE

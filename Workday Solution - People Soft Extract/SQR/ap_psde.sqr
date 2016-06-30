@@ -1,0 +1,647 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_psde.sqr  -- PeopleSoft Data Extractor				        !
+!  Report Descriptions: This report will generate PeopleSoft data in Appirio Standard Data	!
+!  Gathering Workbook (DGW)									!
+!  Report Create Date: 30-Sep-2015 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp ) 			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+#include 'setenv.sqc'		! Set environment
+
+!*****************
+Begin-Program
+!****************
+	show '********** Appirio PeopleSoft Data Extract Process **********'
+	let $StartDateTime = edit(datenow(),'SYYYYMMDDHH24MISS')
+	let $tab	= chr(9)		! Tab
+	show 'Start Date time:' $tab $tab 	$StartDateTime edit 'MM/DD/YYYY HH:MI:SS'
+
+	Do Stdapi-Init
+
+	Do Init_Excel_File
+	
+	DO Main_Report
+
+	Do Stdapi-Term
+
+	let $EndDateTime = edit(datenow(),'SYYYYMMDDHH24MISS')
+	show 'End Date time:' $tab $tab $tab	$EndDateTime edit 'MM/DD/YYYY HH:MI:SS'
+	let #diffSec	= round(datediff(strtodate($EndDateTime),strtodate($StartDateTime),'second'),0)
+	let #diffMin = 0
+	if #diffSec>=60
+		let #diffMin = trunc(#diffSec / 60, 0)
+		let #diffSec = mod(#diffSec, 60)
+	end-if
+	
+	show 'Total Time taken:' $tab $tab #diffMin  edit '99' ' Minute(s) ' #diffSec edit '99' ' Second(s)'
+	show 'Ran by:' 				$tab $tab $tab $tab	$PRCS_OPRID
+	show 'Run Cntl id:' 			$tab $tab $tab		$PRCS_RUN_CNTL_ID
+	
+	show ''
+	show 'Process:'				$tab $tab $tab 		'Data extracted:'
+	show ''
+	show 'Company:' 			$tab $tab $tab		$COMPANY_SHEET
+	show 'Location:' 			$tab $tab $tab		$LOCATIONS_SHEET
+	show 'Cost Centers:' 			$tab $tab $tab		$COST_CENTERS_SHEET
+	show 'Region:' $tab 			$tab $tab $tab		$REGIONS_SHEET
+	show 'Supervisory Organizations:' 	$tab			$SUPERVISORY_ORGS_SHEET
+	show 'Pay Groups:' 			$tab $tab $tab		$PAYGROUPS_SHEET
+	show 'Job Family Group:' 		$tab $tab		$JOB_FAMILY_GROUP_SHEET
+	show 'Job Family:' 			$tab $tab $tab		$JOB_FAMILY_SHEET
+	show 'Management Types:' 		$tab $tab		$MANAGEMENT_TYPES_SHEET
+	show 'Job Classifications:' 		$tab $tab		$JOB_CLASSIFICATIONS_SHEET
+	show 'Job Profiles:' 			$tab $tab $tab		$JOB_PROFILES_SHEET
+	show 'Compensation Plans:' 		$tab $tab		$COMPENSATION_PLANS_SHEET
+	show 'Grades:' 				$tab $tab $tab $tab	$GRADES_SHEET
+	show 'Grades Profiles:' 		$tab $tab		$GRADES_PROFILES_SHEET
+	show 'Positions:' 			$tab $tab $tab		$POSITIONS_SHEET
+	show 'Pre-Hires:' 			$tab $tab $tab		$PREHIRE_SHEET
+	show 'Employmee Data:' 			$tab $tab $tab		$EMP_DATA_SHEET
+	show 'Contingent Worker Data:' 		$tab $tab		$CWR_DATA_SHEET
+	show 'Job and Position History:' 	$tab			$JOB_POS_HIS_SHEET
+	show 'Compensation History:' 		$tab $tab		$COMP_HIS_SHEET
+	show '*************************************************************'
+	
+	
+End-Program
+
+!*****************************
+Begin-Procedure Init_Variables
+!*****************************
+
+	Let $SYSDATE		= datenow()
+
+	Let $where_bu	= 'ACTIVE_INACTIVE =''A'''
+	load-lookup
+	name=BUS_UNIT
+	table=PS_BUS_UNIT_TBL_HR
+	key=BUSINESS_UNIT
+	return_value=DESCR
+	where=$where_bu
+
+	QUIET
+	
+	Let $where_dept	= 'DEPT.EFFDT = (SELECT MAX(DEPT_ED.EFFDT) FROM PS_DEPT_TBL DEPT_ED WHERE DEPT.SETID = DEPT_ED.SETID AND DEPT.DEPTID=DEPT_ED.DEPTID AND DEPT_ED.EFFDT <= '''||$SYSDATE||''')
+	AND DEPT.EFF_STATUS =''A'''
+
+	load-lookup
+	name=DEPT_TBL
+	table='PS_DEPT_TBL DEPT'
+	key=SETID||DEPTID
+	return_value=DESCR||';'||MANAGER_ID||';'||MANAGER_POSN
+	where=$where_dept
+	QUIET
+
+	Let $where_freq= 'FEQ.EFFDT =(SELECT MAX(FEQ_ED.EFFDT) FROM PS_FREQUENCY_TBL FEQ_ED WHERE FEQ.FREQUENCY_ID = FEQ_ED.FREQUENCY_ID
+          AND FEQ_ED.EFFDT <= '''||$SYSDATE||''') AND FEQ.EFF_STATUS =''A'''
+	load-lookup
+	name=FREQUENCY_TBL
+	table='PS_FREQUENCY_TBL FEQ'
+	key=FREQUENCY_ID
+	return_value=DESCR50||';'||FREQ_ANNUAL_FACTOR||';'||USE_STD_HOURS_SW
+	
+	QUIET
+
+	Let $where_loc	= 'LO.EFFDT = (SELECT MAX(LO_ED.EFFDT) FROM PS_LOCATION_TBL LO_ED WHERE LO.SETID = LO_ED.SETID AND LO.LOCATION=LO_ED.LOCATION AND LO_ED.EFFDT <= '''||$SYSDATE||''') AND LO.EFF_STATUS =''A'''
+	load-lookup
+	name=LOCATION_TBL
+	table='PS_LOCATION_TBL LO'
+	key=SETID||LOCATION
+	return_value=DESCR||';'||COUNTRY
+	where=$where_loc
+	QUIET
+
+	load-lookup
+	name=REG_REGION
+	table=PS_REG_REGION_TBL
+	key=REG_REGION
+	return_value=DESCR50
+	QUIET
+
+	Let $where_company	= 'A1.EFFDT = (SELECT MAX(A1_ED.EFFDT) FROM PS_COMPANY_TBL A1_ED WHERE A1.COMPANY = A1_ED.COMPANY AND A1_ED.EFFDT <= '''||$SYSDATE||''') AND A1.EFF_STATUS =''A'''
+	load-lookup
+	name=COMPANY_TBL
+	table='PS_COMPANY_TBL A1'
+	key=COMPANY
+	return_value=DESCR
+	where=$where_company
+	QUIET
+	
+	load-lookup
+	name=ACTION_TBL
+	table=PS_ACTION_TBL
+	key=ACTION
+	return_value=ACTION_DESCR
+	QUIET
+
+	load-lookup
+	name=ACTN_REASON_TBL
+	table=PS_ACTN_REASON_TBL
+	key=ACTION||ACTION_REASON
+	return_value=DESCR
+	QUIET
+	
+	!load-lookup
+	!name=STATES
+	!table=PS_STATE_TBL
+	!key=COUNTRY||','||STATE
+	!return_value=DESCR
+	!QUIET
+	
+	Let $where_clause	= 'PG.EFFDT =(SELECT MAX(PG_ED.EFFDT) FROM PS_PAYGROUP_TBL PG_ED WHERE PG.COMPANY = PG_ED.COMPANY AND PG.PAYGROUP = PG_ED.PAYGROUP
+          AND PG_ED.EFFDT <= '''||$SYSDATE||''') AND PG.EFF_STATUS =''A'''
+	load-lookup
+	name=PAYGROUP_TBL
+	table='PS_PAYGROUP_TBL PG'
+	key=COMPANY||PAYGROUP
+	return_value=DESCR||';'||COUNTRY
+	where=$where_clause
+	QUIET
+	
+	load-lookup
+	name=GP_PYGRP
+	table=PS_GP_PYGRP
+	key=GP_PAYGROUP
+	return_value=DESCR
+	QUIET
+	
+	LET $where_clause	= 'RC.EFFDT =(SELECT MAX(RC_ED.EFFDT) FROM PS_RATECD_CLS_TBL RC_ED WHERE RC.RATE_CODE_CLASS = RC_ED.RATE_CODE_CLASS
+          AND RC_ED.EFFDT <= '''||$SYSDATE||''') AND RC.EFF_STATUS =''A'''
+	load-lookup
+	name=RATECD_CLS_TBL
+	table='PS_RATECD_CLS_TBL RC'
+	key=RATE_CODE_CLASS
+	return_value=DESCR50
+	where=$where_clause
+	QUIET
+End-Procedure
+
+!**************************
+Begin-Procedure Main_Report
+!**************************
+	do Init_Variables
+	do get_Run_Control_Parameters
+
+	do xml_init_worksheet('User Guide',0,0)
+	do Write_User_Guide
+	do xml_init_worksheet('TIMELINE FOR DELIVERABLES',0,0)
+	do xml_init_worksheet('Company Hierarchy',0,0)
+	do Write_Header_Company_Hierarchy
+
+	do xml_init_worksheet('Company',0,0)
+	do Write_Header_Company
+	IF $COMPANY_SHEET = 'Y'
+		do Main_Report_Company
+	END-IF
+	do xml_init_worksheet('Location Hierarchy',0,0)
+	do Write_Header_Loc_Hy
+	do xml_init_worksheet('Locations',0,0)
+	do Write_Header_Loc
+
+	IF $LOCATIONS_SHEET = 'Y'
+		Do Main_Report_Loc
+	END-IF
+
+	do xml_init_worksheet('Work Space Locations',0,0)
+	do xml_init_worksheet('Cost Center Hierarchy',0,0)
+	do Write_Header_CC_Hy
+	do xml_init_worksheet('Cost Centers',0,0)
+	do Write_Header_CC
+	IF $COST_CENTERS_SHEET = 'Y'
+		do Main_Report_CC
+	END-IF
+	do xml_init_worksheet('Region Hierarchy',0,0)
+	do Write_Header_Reg_Hir
+	do xml_init_worksheet('Regions',0,0)
+	do Write_Header_Reg
+	IF $REGIONS_SHEET = 'Y'
+		do Main_Report_Reg
+	END-IF
+	do xml_init_worksheet('Supervisory Organizations',0,0)
+	do Write_Header_SupOrg
+	IF $SUPERVISORY_ORGS_SHEET = 'Y'
+		Do Main_Report_SupOrg
+	END-IF
+	do xml_init_worksheet('Pay Groups',0,0)
+	do xml_init_worksheet('Job Family Group',0,0)
+	do Write_Header_JFG
+	IF $JOB_FAMILY_GROUP_SHEET = 'Y'
+		do Main_Report_JFG
+	END-IF
+	do xml_init_worksheet('Job Family',0,0)
+	do Write_Header_JF
+	IF $JOB_FAMILY_SHEET = 'Y'
+		do Main_Report_JF
+	END-IF
+	do xml_init_worksheet('Management Types',0,0)
+	do Write_Header_MT
+	IF $MANAGEMENT_TYPES_SHEET = 'Y'
+		do Main_Report_MT
+	END-IF
+	do xml_init_worksheet('Job Classifications',0,0)
+	do Write_Header_JC
+	IF $JOB_CLASSIFICATIONS_SHEET = 'Y'
+		do Main_Report_JC
+	END-IF
+	do xml_init_worksheet('Job Profiles',0,0)
+	do Write_Header_Job_Profiles
+	IF $JOB_PROFILES_SHEET = 'Y'
+		Do Main_Report_Job_Profiles
+	END-IF
+
+	do xml_init_worksheet('Compensation Plans',0,0)
+	do xml_init_worksheet('Grades',0,0)
+	do xml_init_worksheet('Grade Profiles',0,0)
+	do xml_init_worksheet('Positions',0,0)
+	do Write_Header_Pos
+
+	IF $POSITIONS_SHEET = 'Y'
+		do get_Positions_Data
+	END-IF
+	do Xml_Init_Worksheet('Pre-Hires',0,0)
+
+	do Write_Header_PreHires
+
+	IF $PREHIRE_SHEET = 'Y'
+		Do Main_Report_PreHires
+	END-IF
+
+	do xml_init_worksheet('Employee Data',0,0)
+	do Write_Header_Emp
+	IF $EMP_DATA_SHEET = 'Y'
+		Do Main_Report_Emp
+	END-IF
+	do xml_init_worksheet('Contingent Worker Data',0,0)
+	do Write_Header_CWR
+	IF $CWR_DATA_SHEET = 'Y'
+		Do Main_Report_CWR
+	END-IF
+	do xml_init_worksheet('Job and Position History',0,0)
+	do xml_init_worksheet('Compensation History',0,0)
+
+	do Xml_Finalize_Workbook()
+
+	do Zip_And_Protect_File		! it will zip and protect output xls by Password		!	Temp
+
+End-Procedure
+
+!******************************
+Begin-Procedure Init_Excel_File
+!******************************
+
+	Do Get-Prcsoutputdir  	!** Procedure To Get The Path Of The Output Folder.
+
+	do xml_init_environment()							 
+	If (rtrim($prcsoutputdir,' ') <> '')
+		!Let $GenerateNewFile = $prcsoutputdir || 'DC_PeopleSoft_Data_Extract' || '_' || $prcs_process_instance || '.xls'
+		Let $GenerateNewFile = $prcsoutputdir || 'DC_PeopleSoft_Data_Extract.xls'
+	End-if
+	
+	!Open File For Writing From Line No - 1
+	do xml_init_file(1, $GenerateNewFile, 0,0)
+
+	!Checking For File Status
+	 if #FileStatus != 0
+		  display $GenerateNewFile noline
+		  display 'Unable to Write File'
+	 end-if
+
+	!INITIALIZATION OF STYLES USED IN PROGRAM
+	!Set up Style 0
+	do xml_init_style(0)
+	do xml_style_font('Calibri', 9, 0, 0, 0, '')		!($FontName, #Size, #Bold, #Italics, #Underline, $Color)
+	do xml_style_alignment('','Top',0,1)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_NumberFormat('General')			!($Format)
+	
+	!Set up Style 1
+	do xml_init_style(1)
+	do xml_style_alignment('','Top',0,0)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_font('Calibri', 9, 1, 0, 0, '')		!($FontName, #Size, #Bold, #Italics, #Underline, $Color)
+	do xml_style_interior('#C5D9F1','Solid')		!($Color, $Pattern)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_NumberFormat('############')		!($Format)
+
+	!Set up Style 2
+	do xml_init_style(2)
+	do xml_style_font('Calibri', 9, 1, 0, 0, 'white')
+	do xml_style_interior('#1F497D','Solid')
+	do xml_style_alignment('','Top',0,1)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_NumberFormat('#,##0.00_);[Red]\(#,##0.00\)')	!($Format)
+
+	!Set up Style 3
+	do xml_init_style(3)
+	do xml_style_font('Calibri', 9, 0, 0, 0, '')
+	do xml_style_alignment('','Top', 0, 1)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	!do xml_style_interior('#CCFFCC','Solid')		!($Color, $Pattern)
+	do xml_style_NumberFormat('0.0%')			!($Format)
+
+	!Set up Style 4
+	do xml_init_style(4)
+	do xml_style_font('Calibri', 9, 0, 0, 0, '')		!($FontName, #Size, #Bold, #Italics, #Underline, $Color)
+	do xml_style_alignment('','Top',0,1)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_NumberFormat('mm/dd/yyyy')			!($Format)
+
+	!Set up Style 5
+	do xml_init_style(5)
+	do xml_style_font('Arial', 9, 1, 0, 0, 'white')
+	do xml_style_interior('#366092','Solid')
+	do xml_style_alignment('Center','Center',0,1)		!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_NumberFormat('#,##0.00_);[Red]\(#,##0.00\)')	!($Format)
+
+	!Set up Style 6		! Hyperlink Style - With underline
+	do xml_init_style(6)
+	do xml_style_font('Arial', 10, 0, 0, 1, '#6600FF')
+	do xml_style_alignment('Center','Center',1,0)		!($Horizontal, $Vertical, #ShrinkToFit)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_Protection(0, 0)				!(#Protected, #Hideformula)
+
+	!Set up Style 7	! Hyperlink Style - With underline
+	do xml_init_style(7)
+	do xml_style_font('Arial', 10, 0, 0, 1, '#6600FF')
+	do xml_style_alignment('','Top',1,0)			!($Horizontal, $Vertical, #ShrinkToFit)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_Protection(0, 0)				!(#Protected, #Hideformula)
+
+	!Set up Style 8
+	do xml_init_style(8)
+	do xml_style_font('Arial', 9, 0, 0, 0, '')
+	do xml_style_alignment('Center','Center',1,0)		!($Horizontal, $Vertical, #ShrinkToFit)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_Protection(0, 0)				!(#Protected, #Hideformula)
+
+
+	!Set up Style 9						! Formatting for Header line having Required/Optional
+	do xml_init_style(9)
+	do xml_style_font('Calibri', 9, 0, 0, 0, '')
+	do xml_style_alignment('','Top', 0, 1)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_interior('#C4D79B','Solid')		!($Color, $Pattern)
+	do xml_style_NumberFormat('0.0%')			!($Format)
+	
+	!Set up Style 10						! Formatting for Header line having Required/Optional
+	do xml_init_style(10)
+	do xml_style_font('Calibri', 9, 0, 0, 0, '')
+	do xml_style_alignment('','Top', 0, 1)			!($Horizontal, $Vertical, #ShrinkToFit, #WrapText)
+	do xml_style_border('Bottom','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Left','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Top','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_border('Right','Continuous',1)		!($Position, $LineStyle, #Weight)
+	do xml_style_interior('#D9D9D9','Solid')		!($Color, $Pattern)
+	do xml_style_NumberFormat('0.0%')			!($Format)
+	
+	!More examples of what the NumberFormat can have.  It is in essense whatever you might put in the "Number Format" field in Excel.
+	!	'############'
+	!	'#,##0.00_);[Red]\(#,##0.00\)'
+	!	'0.0%'
+	!	'0'
+	!	'00000'
+	!	'Long Time'
+	!	'Short Date'
+	!	'Standard'
+	!	'mm/dd/yy'
+	!	'mm/dd/yyyy'
+	!	'mmmm\ d\,\ yyyy'
+
+	do Xml_Finalize_Style()
+
+
+End-Procedure
+
+!*****************************************
+Begin-Procedure get_Run_Control_Parameters
+!*****************************************
+BEGIN-SELECT
+SELECT1
+SELECT2
+SELECT3
+SELECT4
+SELECT5
+SELECT6
+SELECT7
+SELECT8
+SELECT9
+SELECT10
+AP_SELECT11
+AP_SELECT12
+AP_SELECT13
+AP_SELECT14
+AP_SELECT15
+AP_SELECT16
+AP_SELECT17
+AP_SELECT18
+AP_SELECT19
+AP_SELECT20
+SELECT_ALL
+	LET $COMPANY_SHEET		= &SELECT1
+	LET $LOCATIONS_SHEET		= &SELECT2
+	LET $COST_CENTERS_SHEET		= &SELECT3
+	LET $REGIONS_SHEET		= &SELECT4
+	LET $SUPERVISORY_ORGS_SHEET	= &SELECT5
+	LET $PAYGROUPS_SHEET		= &SELECT6
+	LET $JOB_FAMILY_GROUP_SHEET	= &SELECT7
+	LET $JOB_FAMILY_SHEET		= &SELECT8
+	LET $MANAGEMENT_TYPES_SHEET	= &SELECT9
+	LET $JOB_CLASSIFICATIONS_SHEET	= &SELECT10
+	LET $JOB_PROFILES_SHEET		= &AP_SELECT11
+	LET $COMPENSATION_PLANS_SHEET	= &AP_SELECT12
+	LET $GRADES_SHEET		= &AP_SELECT13
+	LET $GRADES_PROFILES_SHEET	= &AP_SELECT14
+	LET $POSITIONS_SHEET		= &AP_SELECT15
+	LET $PREHIRE_SHEET		= &AP_SELECT16
+	LET $EMP_DATA_SHEET		= &AP_SELECT17
+	LET $CWR_DATA_SHEET		= &AP_SELECT18
+	LET $JOB_POS_HIS_SHEET		= &AP_SELECT19
+	LET $COMP_HIS_SHEET		= &AP_SELECT20
+	LET $ALL_SHEETS			= &SELECT_ALL
+FROM PS_AP_SQR_PRCS_TBL
+WHERE OPRID = $PRCS_OPRID AND RUN_CNTL_ID = $PRCS_RUN_CNTL_ID
+END-SELECT
+End-Procedure		! get_Run_Control_Parameters
+
+!**************************************
+Begin-Procedure Get_Xlat_Item
+!**************************************
+Let $XlatLongName	= ''
+BEGIN-SELECT
+XLATLONGNAME
+	Let $XlatLongName	= ltrim(rtrim(&XLATLONGNAME,' '),' ')
+
+FROM PSXLATITEM XLAT
+WHERE EFF_STATUS='A'
+AND XLAT.EFFDT=(SELECT MAX(XLAT1.EFFDT) FROM PSXLATITEM XLAT1 WHERE XLAT.FIELDVALUE=XLAT1.FIELDVALUE AND XLAT.FIELDNAME=XLAT1.FIELDNAME AND XLAT1.EFFDT<=$SYSDATE)
+AND FIELDNAME = $FIELDNAME
+AND FIELDVALUE = $FIELDVALUE
+END-SELECT
+End-Procedure		! Get_Xlat_Item
+
+!**************************************
+Begin-Procedure Write_User_Guide
+!**************************************
+
+	do xml_init_col(1, 1, 300, 0, 0)
+	do xml_init_col(2, 1, 300, 0, 0)
+
+	do xml_init_row(1, 1, 28, 0, 0)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('Data Gathering Workbook User Guide', 0, 5)
+	do xml_init_row(1, 1, 28, 0, 0)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('Please click on the section to go to the Worksheet', 0, 5)
+
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Company Hierarchy', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Company', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Location Hierarchy', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Locations', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Work Space Locations', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Cost Center Hierarchy', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Cost Centers', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Region Hierarchy', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Regions', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Supervisory Organizations', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Pay Groups', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Job Family Group', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Job Family', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Management Types', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Job Classifications', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Job Profiles', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Compensation Plans', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Grades', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Grade Profiles', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Positions', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Pre-Hires', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Employee Data', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Contingent Worker Data', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Job and Position History', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+	
+	do xml_init_row(1, 1, 28, 0, 0)
+	do xml_cell_href('Compensation History', 0, 6)
+	do xml_cell_char('Description of data used on this workbook for the client', 0, 8)
+
+
+End-Procedure		! Write_User_Guide
+
+!***********************************************************************
+! Standard Include Files
+!***********************************************************************
+#Include 'ap_xml_writer.sqc'
+#Include 'ap_jobcd.sqc'
+#Include 'ap_prehires.sqc'
+#Include 'ap_loc.sqc'
+#Include 'ap_company.sqc'
+#Include 'ap_supervisory_org.sqc'
+#Include 'ap_company_hierarchy.sqc'
+#Include 'ap_cost_center.sqc'
+#Include 'ap_employee_data.sqc'
+#Include 'ap_positions.sqc'
+#Include 'ap_loc_hierarchy.sqc'
+#Include 'ap_costcenter_hierarchy.sqc'
+#Include 'ap_regions.sqc'
+#Include 'ap_reg_hierarchy.sqc'
+#Include 'ap_job_family.sqc'
+#Include 'ap_mgmt_types.sqc'
+#Include 'ap_job_family_grp.sqc'
+#Include 'ap_job_class.sqc'
+#Include 'ap_cwr_data.sqc'
+#Include 'curdttim.sqc'	!Get-Current-DateTime procedure
+#Include 'stdapi.sqc'	!Update Process API
+#include 'getlogou.sqc'	!get current logoutput directory
+#Include 'datetime.sqc'	!Routines for date and time formatting
+!***********************************************************************

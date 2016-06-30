@@ -1,0 +1,66 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_company_hierarchy.sqc  -- PeopleSoft Company Hierarchy Extract		!
+!  Report Description: This report will generate Company Hierarchy header information in Appirio!
+!  Standard Data Gathering Workbook (DGW)							!
+!  Report Create Date: 13-Apr-2016 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!*********************************************
+BEGIN-PROCEDURE Write_Header_Company_Hierarchy
+!*********************************************
+
+	do xml_init_col(1, 1, 100, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 130, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 4
+	do xml_cell_char('', 0, 1)				!($character, #column_adjust, #style_id)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Company Hierarchy Name', 0, 2)
+	do xml_cell_char('Parent Company Hierarchy', 0, 2)
+	do xml_cell_char('Company Hierarchy Code', 0, 2)
+	do xml_cell_char('Subtype', 0, 2)
+	do xml_cell_char('Visibility', 0, 2)
+
+
+	do xml_init_row(1, 1, 30, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Company Hierarchy Name', 0, 3)
+	do xml_cell_char('Superior Company Hierarchy', 0, 3)
+	do xml_cell_char('Code for Hierarchy', 0, 3)
+	do xml_cell_char('Subtype of Hierarchy', 0, 3)
+	do xml_cell_char('Who can view the Hierarchy', 0, 3)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text or Numeric', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Dropdown', 0, 10)
+	do xml_cell_char('Dropdown', 0, 10)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+
+END-PROCEDURE

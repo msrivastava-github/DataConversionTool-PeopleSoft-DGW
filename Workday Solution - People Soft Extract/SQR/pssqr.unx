@@ -1,0 +1,184 @@
+; ***************************************************************
+;  This software and related documentation are provided under a
+;  license agreement containing restrictions on use and
+;  disclosure and are protected by intellectual property
+;  laws. Except as expressly permitted in your license agreement
+;  or allowed by law, you may not use, copy, reproduce,
+;  translate, broadcast, modify, license, transmit, distribute,
+;  exhibit, perform, publish or display any part, in any form or
+;  by any means. Reverse engineering, disassembly, or
+;  decompilation of this software, unless required by law for
+;  interoperability, is prohibited.
+;  The information contained herein is subject to change without
+;  notice and is not warranted to be error-free. If you find any
+;  errors, please report them to us in writing.
+;  
+;  Copyright (C) 1988, 2012, Oracle and/or its affiliates.
+;  All Rights Reserved.
+; ***************************************************************
+ 
+ 
+;                                                                    
+; ******************************************************************
+; ******************************************************************
+;
+;   SourceSafe Information:
+;
+; $Header:: /pt843/SQR/pssqr.unx 22    2/19/03 11:48p Ptadm        $
+; ******************************************************************
+;
+; This is the UNIX version of PSSQR.INI.  Any changes
+; made to PSSQR.INI need to be made here also.
+; NOTE: SQRDIR NEED NOT BE SET IN THIS FILE NOR AS AN ENVIRONMENT VARIABLE!
+
+[Default-Settings]
+AllowDateAsChar=TRUE
+output-file-mode=long
+OutputTwoDigitYearWarningMsg=FALSE
+UseY2KCenturyAlgorithm=TRUE
+Default-Numeric=Decimal(26)
+
+[Environment:Common]
+ENCODING=LATIN1
+
+[Environment:DB2]
+SQR_DB_DATE_FORMAT=YYYY-MM-DD-HH.MI.SS.NNNNNN
+SQR_DB_TIME_ONLY_FORMAT=HH.MI.SS
+SQR_DB_DATE_ONLY_FORMAT=YYYY-MM-DD
+;ENCODING-DATABASE-API=UCS2
+
+[Environment:Sybase]
+SQR_DB_DATE_FORMAT=YYYY-MM-DD HH:MI:SS.NNN
+
+[Environment:Oracle]
+SQR_DB_DATE_FORMAT=DD-MON-YYYY
+
+[Environment:Informix]
+SQR_DB_DATE_FORMAT=YYYY-MM-DD HH:MI:SS.000
+SQR_DB_DATE_ONLY_FORMAT=YYYY-MM-DD
+
+[HTML:Images]
+Prev-Page=40,40,/sqr_images/prevpg.gif
+Next-Page=40,40,/sqr_images/nextpg.gif
+First-Page=40,40,/sqr_images/firstpg.gif
+Last-Page=40,40,/sqr_images/lastpg.gif
+;Wallpaper=
+
+[Processing-Limits]
+;DYNAMICARGS=1500
+DYNAMICARGS=32767
+EXPRESSIONSPACE=65535
+FORWARDREFS=1000
+NUMVARIABLES=1100
+ONBREAKS=75
+POSITIONS=5000
+PROGLINEPARS=131106
+PROGLINES=65535
+QUERIES=1000
+QUERYARGS=4000
+SQLSIZE=30000
+STRINGSPACE=85535
+SUBVARS=3000
+VARIABLES=32767
+WHENS=1000
+;BREAKS=100
+;LONGSPACE=32766
+
+[Fonts]
+
+; The following are SQR predefined font styles.
+; The numbers on the left are associated with font styles on the right.
+; Users may define their own associations between font_numbers and font
+; styles using the font_numbers 900 thru 999.
+;
+; Notes:
+;
+;   - If SQR does not find a particular font a substitute is used.
+;   - If a font style (fixed or proportional) is defined inside SQR,
+;     its style will override the setting in this file.
+;   - Proportional is assumed if the second field begins with the character 'p'.
+;     (i.e., "4=Arial,p" would equate to "4=Arial,proportional")
+;   - Bold is assumed if a third parameter is supplied.
+;
+3=Courier New,fixed
+300=Courier New,fixed,bold
+4=Arial,proportional
+400=Arial,proportional,bold
+5=Times New Roman,proportional
+500=Times New Roman,proportional,bold
+6=AvantGarde,proportional
+8=Palatino,proportional
+800=Palatino,proportional,bold
+11=Symbol,symbol
+28825=MS UI Gothic,proportional
+
+[PDF Fonts]
+
+; The following is the list of fonts used for PDF output
+;
+; Fonts are ordered by priority from left.  If a character is not 
+; covered by higher priority font, font with next priority will be used.
+; Up to 10 fonts can be linked for a font number.
+; 
+; Font Types Supported for PDF: Adobe Reader Core 14 fonts
+;                               Adobe Reader Asian Fontpack fonts
+;                               OpenType/TrueType fonts
+; OpenType/TrueType font files must be listed in [TrueType Fonts] 
+; section.  OpenType/TrueType fonts are always embedded in output PDF
+; file as subset.
+; 
+; Base font number * 100 is a bold variant of the base font.  Font 
+; number 30 to 39 are recognized as italic fonts.  If fonts listed 
+; under these numbers are not bold/italic fonts, bold and italic 
+; effect will be created in output.
+;                               
+3=Courier,Cumberland,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+300=Courier-Bold,Cumberland-Bold,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+4=Helvetica,Albany,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+400=Helvetica-Bold,Albany-Bold,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+5=Times-Roman,Thorndale,HeiseiMin-W3,MSung-Light,STSong-Light,HYSMyeongJo-Medium,Angsana
+500=Times-Bold,Thorndale-Bold,HeiseiMin-W3,MSung-Light,STSong-Light,HYSMyeongJo-Medium,Angsana
+11=Symbol
+12=ZapfDingbats
+30=Courier-Oblique,Cumberland,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+3000=Courier-BoldOblique,Cumberland-Bold,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+31=Helvetica-Oblique,Albany,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+3100=Helvetica-BoldOblique,Albany-Bold,HeiseiKakuGo-W5,MHei-Medium,STSong-Light,HYGoThic-Medium,Angsana
+32=Times-Italic,Thorndale,HeiseiMin-W3,MSung-Light,STSong-Light,HYSMyeongJo-Medium,Angsana
+3200=Times-BoldItalic,Thorndale-Bold,HeiseiMin-W3,MSung-Light,STSong-Light,HYSMyeongJo-Medium,Angsana
+28825=Courier,HeiseiKakuGo-W5
+28752=Courier,HeiseiMin-W3
+37110=Courier,STSong-Light
+37058=Courier,STSong-Light
+33269=Courier,MSung-Light
+
+[PDF Fonts:Exclusion Ranges]
+
+; This section specifies exclusion ranges for the range covered by fonts
+; listed in [PDF Fonts] section.  If exclusion range is set, if a 
+; character is actually covered by a font, the font is not used to print 
+; the character.  Ranges are specified in Unicode, in hex or in decimal.
+
+; No Exclusion range for base configuration
+
+
+[TrueType Fonts]
+
+; This section specifies the mapping from TrueType font names used in 
+; above configuration section and physical file path of the font on 
+; operating system. For TrueType collection file (.ttc), font directory 
+; number should also be specified.
+; (ex. font name=file path, directory number)
+
+; Font Path=directory where fonts resides.  Default is SQRDIR.
+
+
+Font Path=/opt/oracle/psft/pt/tools/fonts/truetype/
+Cmap Path=%PS_HOME%/fonts/cmap/
+Albany=ALBANYWT.ttf
+Albany-Bold=ALBANYWT.ttf
+Cumberland=cumbwr__.ttf
+Cumberland-Bold=cumbwb__.ttf
+Thorndale=thowr___.ttf
+Thorndale-Bold=thowb___.ttf
+Angsana=angsa.ttf

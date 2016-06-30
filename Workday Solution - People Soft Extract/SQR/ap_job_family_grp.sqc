@@ -1,0 +1,97 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_job_family_grp.sqc  -- PeopleSoft Job Family Group Extract			!
+!  Report Descriptions: This report will generate Job Family information in Appirio Standard	!
+!  Data Gathering Workbook (DGW)								!
+!  Report Create Date: 12-May-2016								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!*********************************
+Begin-Procedure Init_Variables_JFG
+!*********************************
+
+End-Procedure
+
+!******************************
+Begin-Procedure Main_Report_JFG
+!******************************
+	do Init_Variables_JFG
+	do get_Job_Family_Grp_data
+
+End-Procedure
+
+
+!***************************************
+Begin-Procedure get_Job_Family_Grp_data
+!***************************************
+BEGIN-SELECT
+JFG.JOB_FUNCTION
+JFG.DESCR
+JFG.DESCRSHORT
+	LET $JF_GRP		= ''
+	LET $JF_GRP_SUMMARY	= ''
+	LET $JF_GRP		= ltrim(rtrim(&JFG.DESCR,' '),' ')
+	LET $JF_GRP_SUMMARY	= ltrim(rtrim(&JFG.DESCRSHORT,' '),' ')
+	do Write_Job_Family_Grp_Data
+FROM PS_JOBFUNCTION_TBL JFG
+WHERE JFG.EFFDT=
+  (SELECT MAX(JFG_ED.EFFDT)
+  FROM PS_JOBFUNCTION_TBL JFG_ED
+  WHERE JFG.JOB_FUNCTION=JFG_ED.JOB_FUNCTION
+  AND JFG_ED.EFFDT<=$SYSDATE
+  )
+AND JFG.EFF_STATUS='A'
+
+END-SELECT
+END-PROCEDURE		!	get_Job_Family_Grp_data
+
+
+!****************************************
+BEGIN-PROCEDURE Write_Job_Family_Grp_Data
+!****************************************
+
+	do xml_init_row(1, 1, 0, 0, 0)				
+	do xml_cell_char('', 0, 0)				
+	do xml_cell_char($JF_GRP, 0, 0)				!	Job Family Group	
+	do xml_cell_char($JF_GRP_SUMMARY, 0, 0)			!	Job Family Group Summary	
+
+END-PROCEDURE		!	Write_Job_Family_Grp_Data
+
+!******************************
+Begin-Procedure Write_Header_JFG
+!******************************
+	do xml_init_col(1, 1, 100, 0, 0)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('', 0, 1)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Job Family Group', 0, 2)
+	do xml_cell_char('Job Family Summary', 0, 2)
+
+	do xml_init_row(1, 1, 25, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('', 0, 3)
+	do xml_cell_char('', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text or Numeric', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+
+END-PROCEDURE

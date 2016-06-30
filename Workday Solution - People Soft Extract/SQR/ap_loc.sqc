@@ -1,0 +1,241 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_loc.sqc  -- PeopleSoft Locations Extract					!
+!  Report Description: This report will generate Locations information in Appirio Standard Data !
+!  Gathering Workbook (DGW)									!
+!  Report Create Date: 23-Nov-2015 								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!-----------------------------------------------------------------------------------------------!
+
+!******************************
+Begin-Procedure Main_Report_Loc
+!******************************
+	do get_Location_Data
+End-Procedure
+
+!********************************
+Begin-Procedure get_Location_Data
+!********************************
+BEGIN-SELECT
+LOC.LOCATION
+LOC.DESCR
+LOC.COUNTRY
+LOC.ADDRESS1
+LOC.ADDRESS2
+LOC.ADDRESS3
+LOC.ADDRESS4
+LOC.CITY
+LOC.STATE
+LOC.COUNTY
+LOC.POSTAL
+
+	LET $LOCATION	 	= ''
+	LET $DESCR	 	= ''
+	LET $COUNTRY	 	= ''
+	LET $ADDRESS_LINE_1	= ''
+	LET $ADDRESS_LINE_2	= ''
+	LET $ADDRESS_LINE_3	= ''
+	LET $ADDRESS_LINE_4	= ''
+	LET $CITY	 	= ''
+	LET $STATE	 	= ''
+	LET $COUNTY	 	= ''
+	LET $POSTAL	 	= ''
+	LET $LOCALE	 	= ''
+	LET $CURRENCY	 	= ''
+	
+	LET $LOCATION		= ltrim(rtrim(&LOC.LOCATION,' '),' ')
+	LET $DESCR		= ltrim(rtrim(&LOC.DESCR,' '),' ')
+	LET $COUNTRY		= ltrim(rtrim(&LOC.COUNTRY,' '),' ')
+	LET $CITY		= ltrim(rtrim(&LOC.CITY,' '),' ')
+	LET $STATE		= ltrim(rtrim(&LOC.STATE,' '),' ')
+	LET $COUNTY		= ltrim(rtrim(&LOC.COUNTY,' '),' ')
+	LET $POSTAL		= ltrim(rtrim(&LOC.POSTAL,' '),' ')
+	
+	Let $ADDRESS_LINE_1	= ltrim(rtrim(&LOC.ADDRESS1,' '),' ')
+	Let $ADDRESS_LINE_2	= ltrim(rtrim(&LOC.ADDRESS2,' '),' ')
+	Let $ADDRESS_LINE_3	= ltrim(rtrim(&LOC.ADDRESS3,' '),' ')
+	Let $ADDRESS_LINE_4	= ltrim(rtrim(&LOC.ADDRESS4,' '),' ')
+
+	do COUNTRY_MAPS				!	present in ap_xml_writer.sqc. It will fetch country details.
+	LET $LOCALE	= $COUNTRY_NAME		!	It will fetch Country Name
+	
+	IF $STATE <> ''
+		LET $STATE	= $COUNTRY||'-'||$STATE		!	State is concatenate with Country.
+	END-IF
+	
+	do Write_Location_Data
+
+FROM PS_LOCATION_TBL LOC
+WHERE LOC.EFFDT=(SELECT MAX(LOC1.EFFDT) FROM PS_LOCATION_TBL LOC1
+WHERE LOC.SETID=LOC1.SETID AND LOC.LOCATION=LOC1.LOCATION AND LOC1.EFFDT <= $SYSDATE) AND EFF_STATUS='A'
+ORDER BY 1
+END-SELECT
+END-PROCEDURE
+
+
+!**********************************
+BEGIN-PROCEDURE Write_Location_Data
+!**********************************
+
+	do xml_init_row(1, 1, 0, 0, 0)
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($LOCATION, 0, 0)	!	Location ID
+	do xml_cell_char($DESCR, 0, 0)		!	Location Name
+	do xml_cell_char('', 0, 0)		!	Location Type
+	do xml_cell_char('', 0, 0)		!	Business Asset
+	do xml_cell_char('', 0, 0)		!	Business Suite
+	do xml_cell_char('', 0, 0)		!	Time Profile
+	do xml_cell_char('', 0, 0)		!	Time Zone
+	do xml_cell_char($LOCALE, 0, 0)		!	Locale
+	do xml_cell_char($CURRENCY, 0, 0)	!	Currency
+	do xml_cell_char($ADDRESS_LINE_1, 0, 0)	!	Address Line #1
+	do xml_cell_char($ADDRESS_LINE_2, 0, 0)	!	Address Line #2
+	do xml_cell_char($ADDRESS_LINE_3, 0, 0)	!	Address Line #3
+	do xml_cell_char($ADDRESS_LINE_4, 0, 0)	!	Address Line #4
+	do xml_cell_char($CITY, 0, 0)		!	City or Town
+	do xml_cell_char($STATE, 0, 0)		!	State (Region)
+	do xml_cell_char('', 0, 0)		!	Sub Municipality
+	do xml_cell_char($COUNTY, 0, 0)		!	County
+	do xml_cell_char($COUNTRY, 0, 0)	!	Country
+	do xml_cell_char($POSTAL, 0, 0)		!	Postal Code
+	do xml_cell_char('', 0, 0)		!	Location Hierarchy
+	do xml_cell_char('', 0, 0)		!	Superior Location
+
+END-PROCEDURE
+
+!********************************
+BEGIN-PROCEDURE Write_Header_Loc
+!********************************
+
+	do xml_init_col(1, 1, 120, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 130, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 130, 0, 0)
+	do xml_init_col(7, 1, 130, 0, 0)
+	do xml_init_col(8, 1, 130, 0, 0)
+	do xml_init_col(9, 1, 150, 0, 0)
+	do xml_init_col(10, 1, 150, 0, 0)
+	do xml_init_col(11, 1, 130, 0, 0)
+	do xml_init_col(12, 1, 130, 0, 0)
+	do xml_init_col(13, 1, 130, 0, 0)
+	do xml_init_col(14, 1, 130, 0, 0)
+	do xml_init_col(15, 1, 130, 0, 0)
+	do xml_init_col(16, 1, 130, 0, 0)
+	do xml_init_col(17, 1, 130, 0, 0)
+	do xml_init_col(18, 1, 130, 0, 0)
+	do xml_init_col(19, 1, 130, 0, 0)
+	do xml_init_col(20, 1, 130, 0, 0)
+	do xml_init_col(21, 1, 130, 0, 0)
+	do xml_init_col(22, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 20
+	do xml_cell_char('LOCATION', 0, 1)				!($character, #column_adjust, #style_id)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Location ID', 0, 2)
+	do xml_cell_char('Location Name', 0, 2)
+	do xml_cell_char('Location Type', 0, 2)
+	do xml_cell_char('Business Asset', 0, 2)
+	do xml_cell_char('Business Suite', 0, 2)
+	do xml_cell_char('Time Profile', 0, 2)
+	do xml_cell_char('Time Zone', 0, 2)
+	do xml_cell_char('Locale', 0, 2)
+	do xml_cell_char('Currency', 0, 2)
+	do xml_cell_char('Address Line #1', 0, 2)
+	do xml_cell_char('Address Line #2', 0, 2)
+	do xml_cell_char('Address Line #3', 0, 2)
+	do xml_cell_char('Address Line #4', 0, 2)
+	do xml_cell_char('City or Town', 0, 2)
+	do xml_cell_char('State (Region)', 0, 2)
+	do xml_cell_char('Sub Municipality', 0, 2)
+	do xml_cell_char('County', 0, 2)
+	do xml_cell_char('Country', 0, 2)
+	do xml_cell_char('Postal Code', 0, 2)
+	do xml_cell_char('Location Hierarchy', 0, 2)
+	do xml_cell_char('Superior Location', 0, 2)
+
+	do xml_init_row(1, 1, 100, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Every Location must have a unique ID.  This will be populated centrally.  Territories to do not need to complete this column.', 0, 3)
+	do xml_cell_char('Please provide a name of the location that workers reside at.  This is usually the first line of the address/street or a building name that summarises the location (eg 1633 Broadway, NY)', 0, 3)
+	do xml_cell_char('Please indicate the type of location.  For example, Headquarters, Home Office, Local Office,  Studios etc.', 0, 3)
+	do xml_cell_char('Is the Location a Business Asset', 0, 3)
+	do xml_cell_char('Is the Location a Business Site', 0, 3)
+	do xml_cell_char('Please provide details of the regular hours worked at this Location:  for example, 35, 37.5, 40, etc.  This should reflect the number of hours that most workers are contracted to work at each location listed in the rows.', 0, 3)
+	do xml_cell_char('Please provide the timezone that the location is located in (eg CET, GMT, PST)', 0, 3)
+	do xml_cell_char('Please add in the country name (eg Argentina, Belgium, Australia).  This drives the localised display of dates, currencies within Workday etc', 0, 3)
+	do xml_cell_char('Please provide details of the default currency used to pay workers in each location.  This should be a 3-digit ISO Currency Code (please refer to the Global ISO Codes Tab for options)', 0, 3)
+	do xml_cell_char('Line 1 of the primary address for the Location', 0, 3)
+	do xml_cell_char('Line 2 of the primary address for the Location.', 0, 3)
+	do xml_cell_char('Line 3 of the primary address for the Location.', 0, 3)
+	do xml_cell_char('Line 4 of the primary address for the Location.', 0, 3)
+	do xml_cell_char('The city from the primary address for the Location. ( Municipality)', 0, 3)
+	do xml_cell_char('The ISO 3166-2 region code of the primary address for the location.', 0, 3)
+	do xml_cell_char('Local County', 0, 3)
+	do xml_cell_char('Must be a valid REGION ID from the REGION VALUES section', 0, 3)
+	do xml_cell_char('Country of the primary address for the Location.', 0, 3)
+	do xml_cell_char('The postal code from the primary address for the Location.', 0, 3)
+	do xml_cell_char('The Location Hierarchy. This field allows you to drill into the details of the evaluation and access related actions.', 0, 3)
+	do xml_cell_char('Not a required field.  This would be if a location is broken down by floors then the superior the the 1st 2nd and 3rd floors would be the location of the building they are housed in. ', 0, 3)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Y/N', 0, 10)
+	do xml_cell_char('Number', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Out of Scope', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+
+
+END-PROCEDURE

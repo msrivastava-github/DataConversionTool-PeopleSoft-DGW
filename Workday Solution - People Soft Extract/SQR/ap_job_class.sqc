@@ -1,0 +1,106 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_job_class.sqc  -- PeopleSoft Job Classifications Extract			!
+!  Report Descriptions: This report will generate Management Levels information in Appirio 	!
+!  Standard Data Gathering Workbook (DGW)							!
+!  Report Create Date: 11-May-2016								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!********************************
+Begin-Procedure Init_Variables_JC
+!********************************
+
+End-Procedure
+
+!*****************************
+Begin-Procedure Main_Report_JC
+!*****************************
+	do Init_Variables_JC
+	do get_Job_Class_data
+
+End-Procedure
+
+
+!**********************************
+Begin-Procedure get_Job_Class_data
+!**********************************
+BEGIN-SELECT
+XLAT2.XLATLONGNAME
+XLAT2.FIELDVALUE
+	Let $JOB_CLASS_NAME	= ''
+	LET $JOB_CLASS_ID	= ''
+	LET $JOB_CLASS_DESCR	= ''
+	LET $JOB_CLASS_GRP	= ''
+	Let $JOB_CLASS_NAME	= ltrim(rtrim(&XLAT2.XLATLONGNAME,' '),' ')
+	Let $JOB_CLASS_ID	= ltrim(rtrim(&XLAT2.FIELDVALUE,' '),' ')
+	do Write_Job_Class_Data
+FROM PSXLATITEM XLAT2
+WHERE EFF_STATUS='A'
+AND XLAT2.EFFDT=(SELECT MAX(XLAT21.EFFDT) FROM PSXLATITEM XLAT21 
+WHERE XLAT2.FIELDVALUE=XLAT21.FIELDVALUE AND XLAT2.FIELDNAME=XLAT21.FIELDNAME AND XLAT21.EFFDT<=$SYSDATE)
+AND FIELDNAME = 'EEO1CODE'
+END-SELECT
+END-PROCEDURE		!	get_Job_Class_data
+
+
+!************************************
+BEGIN-PROCEDURE Write_Job_Class_Data
+!************************************
+
+	do xml_init_row(1, 1, 0, 0, 0)				
+	do xml_cell_char('', 0, 0)
+	do xml_cell_char($JOB_CLASS_NAME, 0, 0)			!	Job Classification Name
+	do xml_cell_char($JOB_CLASS_ID, 0, 0)			!	Job Classification ID
+	do xml_cell_char($JOB_CLASS_DESCR, 0, 0)		!	Job Classification Descrription
+	do xml_cell_char($JOB_CLASS_GRP, 0, 0)			!	Job Classification Group
+
+END-PROCEDURE		!	Write_Job_Class_Data
+
+!******************************
+Begin-Procedure Write_Header_JC
+!******************************
+	do xml_init_col(1, 1, 100, 0, 0)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 3
+	do xml_cell_char('', 0, 1)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Job Classification Name', 0, 2)
+	do xml_cell_char('Job Classification ID', 0, 2)
+	do xml_cell_char('Job Classification Description', 0, 2)
+	do xml_cell_char('Job Classification Group', 0, 2)
+
+	do xml_init_row(1, 1, 70, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('The job classification is used primarily for regulatory reporting (e.g. EEO, etc). This field allows you to drill into the details of the job classification and access related actions.', 0, 3)
+	do xml_cell_char('The job classification id for the job classification.', 0, 3)
+	do xml_cell_char('The description of what the Job Classificaiton is. ', 0, 3)
+	do xml_cell_char('The job classification group for the job classification.', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text or Numeric', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE

@@ -1,0 +1,113 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_regions.sqc  -- PeopleSoft Regions Extract					!
+!  Report Descriptions: This report will generate Regions information in Appirio Standard	!
+!  Data Gathering Workbook (DGW)								!
+!  Report Create Date: 11-May-2016								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!********************************
+Begin-Procedure Init_Variables_Reg
+!********************************
+
+ !Variables are being defaulted here.
+
+ LET $SUB_TYPE			= 'Region'
+
+End-Procedure
+
+!*****************************
+Begin-Procedure Main_Report_Reg
+!*****************************
+	do Init_Variables_Reg
+	do get_Regions_data
+
+End-Procedure
+
+
+!**********************************
+Begin-Procedure get_Regions_data
+!**********************************
+LET $REG_NAME		= ''
+LET $REG_ID		= ''
+BEGIN-SELECT
+REG.REG_REGION
+REG.DESCR50
+	LET $REG_NAME		= ltrim(rtrim(&REG.DESCR50,' '),' ')
+	LET $REG_ID		= ltrim(rtrim(&REG.REG_REGION,' '),' ')
+	
+	do Write_Regions_Data
+
+FROM PS_REG_REGION_TBL REG
+
+END-SELECT
+END-PROCEDURE
+
+
+!************************************
+BEGIN-PROCEDURE Write_Regions_Data
+!************************************
+
+	do xml_init_row(1, 1, 0, 0, 0)				
+	do xml_cell_char('', 0, 0)				
+	do xml_cell_char($REG_NAME, 0, 0)		!	Region Name	
+	do xml_cell_char($REG_ID, 0, 0)			!	Region Code
+	do xml_cell_char('', 0, 0)			!	Region Descriptions
+	do xml_cell_char('', 0, 0)			!	Region Hierarchy
+	do xml_cell_char($SUB_TYPE, 0, 0)		!	Sub Type	
+
+END-PROCEDURE
+
+!******************************
+Begin-Procedure Write_Header_Reg
+!******************************
+	do xml_init_col(1, 1, 100, 0, 0)					!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+	do xml_init_col(4, 1, 130, 0, 0)
+	do xml_init_col(5, 1, 130, 0, 0)
+	do xml_init_col(6, 1, 100, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 4
+	do xml_cell_char('', 0, 1)					!($character, #column_adjust, #style_id)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Region Name', 0, 2)
+	do xml_cell_char('Region Code', 0, 2)
+	do xml_cell_char('Region Descriptions', 0, 2)
+	do xml_cell_char('Region Hierarchy', 0, 2)
+	do xml_cell_char('Sub Type', 0, 2)
+
+	do xml_init_row(1, 1, 50, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('', 0, 3)
+	do xml_cell_char('Please fill in the unique code that the worker''s costs are assigned to for various accounting purposes', 0, 3)
+	do xml_cell_char('Provide a brief description of this cost center so we can differentiate between all of them', 0, 3)
+	do xml_cell_char('Provide the Region Hierarchy that this particular Region is Associated With', 0, 3)
+	do xml_cell_char('Sub type of the Region', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text or Numeric', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('Text', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Optional', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE	

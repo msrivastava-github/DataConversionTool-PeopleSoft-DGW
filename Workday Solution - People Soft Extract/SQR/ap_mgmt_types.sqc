@@ -1,0 +1,89 @@
+!-----------------------------------------------------------------------------------------------!
+!  Report Name: ap_mgmt_types.sqc  -- PeopleSoft Management Types Extract			!
+!  Report Descriptions: This report will generate Management Levels information in Appirio 	!
+!  Standard Data Gathering Workbook (DGW)							!
+!  Report Create Date: 11-May-2016								!
+!  Report Run Component: AP_SQR_PRCS_CMP ( Appirio PSDE Run control Comp )			!
+!  Developed By - Sumit Chaurasiya								!
+!  Company Name - Appirio Inc.									!
+!------------------------------------------------------------------------------------------------
+
+!********************************
+Begin-Procedure Init_Variables_MT
+!********************************
+
+End-Procedure
+
+!*****************************
+Begin-Procedure Main_Report_MT
+!*****************************
+	do Init_Variables_MT
+	do get_Mgmt_Type_data
+
+End-Procedure
+
+
+!**********************************
+Begin-Procedure get_Mgmt_Type_data
+!**********************************
+BEGIN-SELECT
+XLAT1.XLATLONGNAME
+	Let $MGMT_TYPE_NAME	= ''
+	Let $MGMT_TYPE_NAME	= ltrim(rtrim(&XLAT1.XLATLONGNAME,' '),' ')
+	do Write_Mgmt_Type_Data
+FROM PSXLATITEM XLAT1
+WHERE EFF_STATUS='A'
+AND XLAT1.EFFDT=(SELECT MAX(XLAT11.EFFDT) FROM PSXLATITEM XLAT11 
+WHERE XLAT1.FIELDVALUE=XLAT11.FIELDVALUE AND XLAT1.FIELDNAME=XLAT11.FIELDNAME AND XLAT11.EFFDT<=$SYSDATE)
+AND FIELDNAME = 'MANAGER_LEVEL'
+END-SELECT
+END-PROCEDURE		!	get_Mgmt_Type_data
+
+
+!************************************
+BEGIN-PROCEDURE Write_Mgmt_Type_Data
+!************************************
+
+	do xml_init_row(1, 1, 0, 0, 0)				
+	do xml_cell_char('', 0, 0)				
+	do xml_cell_char($MGMT_TYPE_NAME, 0, 0)		!	Management Type Name
+	do xml_cell_char($LEVEL, 0, 0)			!	Level Hierachy Order	
+
+END-PROCEDURE		!	
+
+!******************************
+Begin-Procedure Write_Header_MT
+!******************************
+	do xml_init_col(1, 1, 100, 0, 0)				!(#column, #autofitwidth, #width, #hidden, #style_id)
+	do xml_init_col(2, 1, 150, 0, 0)
+	do xml_init_col(3, 1, 130, 0, 0)
+
+	do xml_init_row(1, 1, 13, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_href('User Guide', 0, 7)
+
+	do xml_init_row(1, 1, 15, 0, 0)					!(#row_adjust, #autofitheight, #height, #hidden, #style_id)
+	do xml_cell_char('DATA CATEGORY', 0, 3)
+	LET #xml_mergeacross = 1
+	do xml_cell_char('', 0, 1)					!($character, #column_adjust, #style_id)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('FIELD NAME', 0, 3)
+	do xml_cell_char('Management Type Name', 0, 2)
+	do xml_cell_char('Level Hierachy Order', 0, 2)
+
+	do xml_init_row(1, 1, 50, 0, 0)
+	do xml_cell_char('SPECIAL INSTRUCTIONS', 0, 3)
+	do xml_cell_char('Management Level for the worker. It is retrieved from the job profile associated with the worker''s primary position.', 0, 3)
+	do xml_cell_char('Order (Ex 1 Highest, 2, 3, 4 etc.) in which the management levels are on the hierarchy', 0, 3)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('DATA TYPE', 0, 3)
+	do xml_cell_char('Text', 0, 10)
+	do xml_cell_char('ID', 0, 10)
+
+	do xml_init_row(1, 1, 15, 0, 0)
+	do xml_cell_char('Required/Optional', 0, 3)
+	do xml_cell_char('Required', 0, 9)
+	do xml_cell_char('Required', 0, 9)
+
+END-PROCEDURE
